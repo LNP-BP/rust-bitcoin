@@ -22,9 +22,8 @@ use-serde = ["hex", "serde", "bitcoin_hashes/serde", "secp256k1/serde"]
 
 [dependencies]
 bech32 = "0.7.2"
-bitcoin_hashes = "0.7.3"
+bitcoin_hashes = { git = "https://github.com/pandoracore/bitcoin_hashes.git", branch = "develop" }
 secp256k1 = "0.17.1"
-
 bitcoinconsensus = { version = "0.19.0-1", optional = true }
 serde = { version = "1", optional = true }
 hex = { version = "=0.3.2", optional = true }
