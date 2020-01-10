@@ -26,10 +26,11 @@
 
 use std::default::Default;
 use std::{error, fmt, io};
+use bech32;
 
 #[cfg(feature = "serde")] use serde;
 
-use hash_types::{ScriptHash, WScriptHash};
+use hash_types::{PubkeyHash, WPubkeyHash, ScriptHash, WScriptHash};
 use blockdata::opcodes;
 use consensus::{encode, Decodable, Encodable};
 use hashes::Hash;
@@ -244,18 +245,13 @@ impl Script {
 
     /// Compute the P2SH output corresponding to this redeem script
     pub fn to_p2sh(&self) -> Script {
-        Builder::new().push_opcode(opcodes::all::OP_HASH160)
-                      .push_slice(&self.script_hash()[..])
-                      .push_opcode(opcodes::all::OP_EQUAL)
-                      .into_script()
+        Builder::gen_p2sh(&ScriptHash::hash(&self.0)).into_script()
     }
 
     /// Compute the P2WSH output corresponding to this witnessScript (aka the "witness redeem
     /// script")
     pub fn to_v0_p2wsh(&self) -> Script {
-        Builder::new().push_int(0)
-                      .push_slice(&self.wscript_hash()[..])
-                      .into_script()
+        Builder::gen_v0_p2wsh(&WScriptHash::hash(&self.0)).into_script()
     }
 
     /// Checks whether a script pubkey is a p2sh output
@@ -567,8 +563,51 @@ impl<'a> Iterator for Instructions<'a> {
 
 impl Builder {
     /// Creates a new empty script
-    pub fn new() -> Builder {
+    pub fn new() -> Self {
         Builder(vec![], None)
+    }
+
+    /// Generates P2PK-type of scriptPubkey
+    pub fn gen_p2pk(pubkey: &PublicKey) -> Self {
+        Builder::new().push_key(pubkey)
+            .push_opcode(opcodes::all::OP_CHECKSIG)
+    }
+
+    /// Generates P2PKH-type of scriptPubkey
+    pub fn gen_p2pkh(pubkey_hash: &PubkeyHash) -> Self {
+        Builder::new().push_opcode(opcodes::all::OP_DUP)
+            .push_opcode(opcodes::all::OP_HASH160)
+            .push_slice(&pubkey_hash[..])
+            .push_opcode(opcodes::all::OP_EQUALVERIFY)
+            .push_opcode(opcodes::all::OP_CHECKSIG)
+    }
+
+    /// Generates P2SH-type of scriptPubkey with a given hash of the redeem script
+    pub fn gen_p2sh(script_hash: &ScriptHash) -> Self {
+        Builder::new().push_opcode(opcodes::all::OP_HASH160)
+            .push_slice(&script_hash[..])
+            .push_opcode(opcodes::all::OP_EQUAL)
+    }
+
+    /// Generates P2WPKH-type of scriptPubkey
+    pub fn gen_v0_p2wpkh(pubkey_hash: &WPubkeyHash) -> Self {
+        Self::gen_witness(bech32::u5::try_from_u8(0).unwrap(), &pubkey_hash.to_vec())
+    }
+
+    /// Generates P2WSH-type of scriptPubkey with a given hash of the redeem script
+    pub fn gen_v0_p2wsh(script_hash: &WScriptHash) -> Self {
+        Self::gen_witness(bech32::u5::try_from_u8(0).unwrap(), &script_hash.to_vec())
+    }
+
+    /// Generates P2WSH-type of scriptPubkey with a given hash of the redeem script
+    pub fn gen_witness(ver: bech32::u5, program: &Vec<u8>) -> Self {
+        assert!(ver.to_u8() <= 16);
+        let mut verop = ver.to_u8();
+        if verop > 0 {
+            verop = 0x50 + verop;
+        }
+        Builder::new().push_opcode(verop.into())
+            .push_slice(&program)
     }
 
     /// The length in bytes of the script
@@ -828,6 +867,31 @@ mod test {
                                    .push_opcode(opcodes::all::OP_CHECKSIG)
                                    .into_script();
         assert_eq!(&format!("{:x}", script), "76a91416e1ae70ff0fa102905d4af297f6912bda6cce1988ac");
+    }
+
+    #[test]
+    fn script_generators() {
+        let pubkey = PublicKey::from_str("0234e6a79c5359c613762d537e0e19d86c77c1666d8c9ab050f23acd198e97f93e").unwrap();
+        assert!(Builder::gen_p2pk(&pubkey).into_script().is_p2pk());
+
+        let pubkey_hash = pubkey.pubkey_hash();
+        assert!(Builder::gen_p2pkh(&pubkey_hash).into_script().is_p2pkh());
+
+        let wpubkey_hash = pubkey.wpubkey_hash();
+        assert!(Builder::gen_v0_p2wpkh(&wpubkey_hash).into_script().is_v0_p2wpkh());
+
+        let script = Builder::new().push_opcode(opcodes::all::OP_NUMEQUAL)
+                                   .push_verify()
+                                   .into_script();
+        let script_hash = script.script_hash();
+        let p2sh = Builder::gen_p2sh(&script_hash).into_script();
+        assert!(p2sh.is_p2sh());
+        assert_eq!(script.to_p2sh(), p2sh);
+
+        let wscript_hash = script.wscript_hash();
+        let p2wsh = Builder::gen_v0_p2wsh(&wscript_hash).into_script();
+        assert!(Builder::gen_v0_p2wsh(&wscript_hash).into_script().is_v0_p2wsh());
+        assert_eq!(script.to_v0_p2wsh(), p2wsh);
     }
 
     #[test]

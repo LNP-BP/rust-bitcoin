@@ -45,13 +45,12 @@ use std::str::FromStr;
 
 use bech32;
 use hashes::Hash;
-
 use hash_types::{PubkeyHash, WPubkeyHash, ScriptHash, WScriptHash};
-use blockdata::opcodes;
 use blockdata::script;
 use network::constants::Network;
 use util::base58;
 use util::key;
+use util::psbt::serialize::Serialize;
 
 /// Address error.
 #[derive(Debug, PartialEq)]
@@ -159,11 +158,11 @@ impl FromStr for AddressType {
 /// The method used to produce an address
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Payload {
-    /// pay-to-pkhash address
+    /// P2PKH address
     PubkeyHash(PubkeyHash),
     /// P2SH address
     ScriptHash(ScriptHash),
-    /// Segwit address
+    /// Segwit addresses
     WitnessProgram {
         /// The witness program version
         version: bech32::u5,
@@ -200,31 +199,17 @@ impl Payload {
     }
 
     /// Generates a script pubkey spending to this [Payload].
-    pub fn script_pubkey(&self) -> script::Script {
+    pub fn script_pubkey(&self) -> script::Builder {
         match *self {
-            Payload::PubkeyHash(ref hash) => script::Builder::new()
-                .push_opcode(opcodes::all::OP_DUP)
-                .push_opcode(opcodes::all::OP_HASH160)
-                .push_slice(&hash[..])
-                .push_opcode(opcodes::all::OP_EQUALVERIFY)
-                .push_opcode(opcodes::all::OP_CHECKSIG),
-            Payload::ScriptHash(ref hash) => script::Builder::new()
-                .push_opcode(opcodes::all::OP_HASH160)
-                .push_slice(&hash[..])
-                .push_opcode(opcodes::all::OP_EQUAL),
+            Payload::PubkeyHash(ref hash) =>
+                script::Builder::gen_p2pkh(hash),
+            Payload::ScriptHash(ref hash) =>
+                script::Builder::gen_p2sh(hash),
             Payload::WitnessProgram {
                 version: ver,
                 program: ref prog,
-            } => {
-                assert!(ver.to_u8() <= 16);
-                let mut verop = ver.to_u8();
-                if verop > 0 {
-                    verop = 0x50 + verop;
-                }
-                script::Builder::new().push_opcode(verop.into()).push_slice(&prog)
-            }
+            } => script::Builder::gen_witness(ver, prog)
         }
-        .into_script()
     }
 }
 
@@ -243,12 +228,9 @@ impl Address {
     /// This is the preferred non-witness type address
     #[inline]
     pub fn p2pkh(pk: &key::PublicKey, network: Network) -> Address {
-        let mut hash_engine = PubkeyHash::engine();
-        pk.write_into(&mut hash_engine);
-
         Address {
             network: network,
-            payload: Payload::PubkeyHash(PubkeyHash::from_engine(hash_engine)),
+            payload: Payload::PubkeyHash(PubkeyHash::hash(&pk.serialize())),
         }
     }
 
@@ -258,21 +240,18 @@ impl Address {
     pub fn p2sh(script: &script::Script, network: Network) -> Address {
         Address {
             network: network,
-            payload: Payload::ScriptHash(ScriptHash::hash(&script[..])),
+            payload: Payload::ScriptHash(ScriptHash::hash(&script.serialize())),
         }
     }
 
     /// Create a witness pay to public key address from a public key
     /// This is the native segwit address type for an output redeemable with a single signature
     pub fn p2wpkh(pk: &key::PublicKey, network: Network) -> Address {
-        let mut hash_engine = WPubkeyHash::engine();
-        pk.write_into(&mut hash_engine);
-
         Address {
             network: network,
             payload: Payload::WitnessProgram {
                 version: bech32::u5::try_from_u8(0).expect("0<32"),
-                program: WPubkeyHash::from_engine(hash_engine)[..].to_vec(),
+                program: WPubkeyHash::hash(&pk.serialize()).to_vec(),
             },
         }
     }
@@ -280,16 +259,13 @@ impl Address {
     /// Create a pay to script address that embeds a witness pay to public key
     /// This is a segwit address type that looks familiar (as p2sh) to legacy clients
     pub fn p2shwpkh(pk: &key::PublicKey, network: Network) -> Address {
-        let mut hash_engine = WPubkeyHash::engine();
-        pk.write_into(&mut hash_engine);
-
         let builder = script::Builder::new()
             .push_int(0)
-            .push_slice(&WPubkeyHash::from_engine(hash_engine)[..]);
+            .push_slice(&WPubkeyHash::hash(&pk.serialize())[..]);
 
         Address {
             network: network,
-            payload: Payload::ScriptHash(ScriptHash::hash(builder.into_script().as_bytes())),
+            payload: Payload::ScriptHash(ScriptHash::hash(&builder.into_script().serialize())),
         }
     }
 
@@ -299,7 +275,7 @@ impl Address {
             network: network,
             payload: Payload::WitnessProgram {
                 version: bech32::u5::try_from_u8(0).expect("0<32"),
-                program: WScriptHash::hash(&script[..])[..].to_vec(),
+                program: WScriptHash::hash(&script.serialize())[..].to_vec(),
             },
         }
     }
@@ -309,12 +285,12 @@ impl Address {
     pub fn p2shwsh(script: &script::Script, network: Network) -> Address {
         let ws = script::Builder::new()
             .push_int(0)
-            .push_slice(&WScriptHash::hash(&script[..])[..])
+            .push_slice(&WScriptHash::hash(&script.serialize())[..])
             .into_script();
 
         Address {
             network: network,
-            payload: Payload::ScriptHash(ScriptHash::hash(&ws[..])),
+            payload: Payload::ScriptHash(ScriptHash::hash(&ws.serialize())),
         }
     }
 
@@ -360,7 +336,7 @@ impl Address {
 
     /// Generates a script pubkey spending to this address
     pub fn script_pubkey(&self) -> script::Script {
-        self.payload.script_pubkey()
+        self.payload.script_pubkey().into_script()
     }
 }
 
