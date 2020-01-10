@@ -26,6 +26,7 @@
 
 use std::default::Default;
 use std::{error, fmt, io};
+use bech32;
 
 #[cfg(feature = "serde")] use serde;
 
