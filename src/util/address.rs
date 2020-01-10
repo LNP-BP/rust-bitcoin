@@ -45,9 +45,7 @@ use std::str::FromStr;
 
 use bech32;
 use hashes::Hash;
-
 use hash_types::{PubkeyHash, WPubkeyHash, ScriptHash, WScriptHash};
-use blockdata::opcodes;
 use blockdata::script;
 use network::constants::Network;
 use util::base58;
@@ -159,11 +157,11 @@ impl FromStr for AddressType {
 /// The method used to produce an address
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Payload {
-    /// pay-to-pkhash address
+    /// P2PKH address
     PubkeyHash(PubkeyHash),
     /// P2SH address
     ScriptHash(ScriptHash),
-    /// Segwit address
+    /// Segwit addresses
     WitnessProgram {
         /// The witness program version
         version: bech32::u5,
@@ -200,31 +198,17 @@ impl Payload {
     }
 
     /// Generates a script pubkey spending to this [Payload].
-    pub fn script_pubkey(&self) -> script::Script {
+    pub fn script_pubkey(&self) -> script::Builder {
         match *self {
-            Payload::PubkeyHash(ref hash) => script::Builder::new()
-                .push_opcode(opcodes::all::OP_DUP)
-                .push_opcode(opcodes::all::OP_HASH160)
-                .push_slice(&hash[..])
-                .push_opcode(opcodes::all::OP_EQUALVERIFY)
-                .push_opcode(opcodes::all::OP_CHECKSIG),
-            Payload::ScriptHash(ref hash) => script::Builder::new()
-                .push_opcode(opcodes::all::OP_HASH160)
-                .push_slice(&hash[..])
-                .push_opcode(opcodes::all::OP_EQUAL),
+            Payload::PubkeyHash(ref hash) =>
+                script::Builder::gen_p2pkh(hash),
+            Payload::ScriptHash(ref hash) =>
+                script::Builder::gen_p2sh(hash),
             Payload::WitnessProgram {
                 version: ver,
                 program: ref prog,
-            } => {
-                assert!(ver.to_u8() <= 16);
-                let mut verop = ver.to_u8();
-                if verop > 0 {
-                    verop = 0x50 + verop;
-                }
-                script::Builder::new().push_opcode(verop.into()).push_slice(&prog)
-            }
+            } => script::Builder::gen_witness(ver, prog)
         }
-        .into_script()
     }
 }
 
@@ -360,7 +344,7 @@ impl Address {
 
     /// Generates a script pubkey spending to this address
     pub fn script_pubkey(&self) -> script::Script {
-        self.payload.script_pubkey()
+        self.payload.script_pubkey().into_script()
     }
 }
 
