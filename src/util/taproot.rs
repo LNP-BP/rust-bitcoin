@@ -48,6 +48,7 @@ const MIDSTATE_TAPSIGHASH: [u8; 32] = [
 /// It creates two public types:
 /// - a sha246t::Tag struct,
 /// - a sha256t::Hash type alias.
+#[macro_export]
 macro_rules! tagged_hash {
 	($name:ident, $tag:ident, $hash:ident, $midstate:ident) => {
 		/// The `$name` hash tag.
@@ -55,7 +56,7 @@ macro_rules! tagged_hash {
 		pub struct $tag;
 
 		impl sha256t::Tag for $tag {
-			fn engine() -> sha256::HashEngine {
+			fn engine() -> $crate::hashes::sha256::HashEngine {
 				//TODO(stevenroose) optimize this when following two PRs are merged:
 				// https://github.com/rust-bitcoin/bitcoin_hashes/pull/61
 				// https://github.com/rust-bitcoin/bitcoin_hashes/pull/62

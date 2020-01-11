@@ -78,6 +78,7 @@ mod internal_macros;
 #[macro_use]
 pub mod network;
 pub mod blockdata;
+#[macro_use]
 pub mod util;
 pub mod consensus;
 // Do not remove: required in order to get hash types implementation macros to work correctly

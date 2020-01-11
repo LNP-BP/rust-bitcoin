@@ -27,6 +27,7 @@ pub mod hash;
 pub mod merkleblock;
 pub mod misc;
 pub mod psbt;
+#[macro_use]
 pub mod taproot;
 pub mod uint;
 pub mod bip158;
