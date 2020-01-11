@@ -610,6 +610,11 @@ impl Builder {
             .push_slice(&program)
     }
 
+    /// Generates OP_RETURN-type of scriptPubkey for a given data
+    pub fn gen_op_return(data: &Vec<u8>) -> Self {
+        Builder::new().push_opcode(opcodes::all::OP_RETURN).push_slice(&data)
+    }
+
     /// The length in bytes of the script
     pub fn len(&self) -> usize { self.0.len() }
 
@@ -890,8 +895,15 @@ mod test {
 
         let wscript_hash = script.wscript_hash();
         let p2wsh = Builder::gen_v0_p2wsh(&wscript_hash).into_script();
-        assert!(Builder::gen_v0_p2wsh(&wscript_hash).into_script().is_v0_p2wsh());
+        assert!(p2wsh.is_v0_p2wsh());
         assert_eq!(script.to_v0_p2wsh(), p2wsh);
+
+        // Test data are taken from the second output of
+        // 2ccb3a1f745eb4eefcf29391460250adda5fab78aaddb902d25d3cd97d9d8e61 transaction
+        let data = hex_decode("aa21a9ed20280f53f2d21663cac89e6bd2ad19edbabb048cda08e73ed19e9268d0afea2a").unwrap();
+        let op_return = Builder::gen_op_return(&data).into_script();
+        assert!(op_return.is_op_return());
+        assert_eq!(op_return.to_hex(), "6a24aa21a9ed20280f53f2d21663cac89e6bd2ad19edbabb048cda08e73ed19e9268d0afea2a");
     }
 
     #[test]
