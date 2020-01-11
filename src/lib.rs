@@ -51,6 +51,9 @@
 #![allow(bare_trait_objects)]
 #![allow(ellipsis_inclusive_range_patterns)]
 
+// Allow macro re-export
+#![feature(use_extern_macros)]
+
 // Re-exported dependencies.
 #[macro_use] pub extern crate bitcoin_hashes as hashes;
 pub extern crate secp256k1;
@@ -80,6 +83,11 @@ pub mod consensus;
 // Do not remove: required in order to get hash types implementation macros to work correctly
 #[allow(unused_imports)]
 pub mod hash_types;
+
+// Re-exporting macro
+pub use hashes::{hash_newtype, hex_fmt_impl, index_impl, borrow_slice_impl};
+#[cfg(feature = "serde")]
+pub use hashes::serde_impl;
 
 pub use hash_types::*;
 pub use blockdata::block::Block;
