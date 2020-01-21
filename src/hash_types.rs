@@ -22,6 +22,8 @@ use consensus::encode::{Encodable, Decodable, Error};
 use hashes::{sha256, sha256d, hash160, Hash};
 use hashes::hex::{ToHex, FromHex};
 
+/// Implements consensus::encode traits for a given Hash data type
+#[macro_export]
 macro_rules! impl_hashencode {
     ($hashtype:ident) => {
         impl Encodable for $hashtype {
@@ -65,7 +67,9 @@ impl_hashencode!(WitnessMerkleNode);
 impl_hashencode!(FilterHash);
 
 
-macro_rules! hash {
+/// Performs efficient hashing of the consensus-serializable data structures
+#[macro_export]
+macro_rules! hash_consensus {
     ($hash:ident, $($item:expr),+) => {
         {
             let mut engine = $hash::engine();

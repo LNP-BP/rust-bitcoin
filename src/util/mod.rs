@@ -29,6 +29,7 @@ pub mod misc;
 pub mod psbt;
 #[macro_use]
 pub mod taproot;
+#[macro_use]
 pub mod uint;
 pub mod bip158;
 

@@ -18,11 +18,12 @@
 //! The functions here are designed to be fast.
 //!
 
-use std::fmt;
-
+/// Creates a wrapper type around multibyte slice to mimic big integer behaviour
+/// (like 128-bit and 256-bit integers).
 use consensus::encode;
 use util::BitArray;
 
+#[macro_export]
 macro_rules! construct_uint {
     ($name:ident, $n_words:expr) => (
         /// Little-endian large integer type
