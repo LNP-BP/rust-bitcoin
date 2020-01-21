@@ -43,6 +43,8 @@ macro_rules! impl_consensus_encoding {
     );
 }
 
+/// Implements standard array methods for a given wrapper type
+#[macro_export]
 macro_rules! impl_array_newtype {
     ($thing:ident, $ty:ty, $len:expr) => {
         impl $thing {
@@ -81,7 +83,7 @@ macro_rules! impl_array_newtype {
             pub fn into_bytes(self) -> [$ty; $len] { self.0 }
         }
 
-        impl<'a> From<&'a [$ty]> for $thing {
+        impl<'a> ::std::convert::From<&'a [$ty]> for $thing {
             fn from(data: &'a [$ty]) -> $thing {
                 assert_eq!(data.len(), $len);
                 let mut ret = [0; $len];
@@ -102,23 +104,23 @@ macro_rules! impl_array_newtype {
 
         impl_index_newtype!($thing, $ty);
 
-        impl PartialEq for $thing {
+        impl ::std::cmp::PartialEq for $thing {
             #[inline]
             fn eq(&self, other: &$thing) -> bool {
                 &self[..] == &other[..]
             }
         }
 
-        impl Eq for $thing {}
+        impl ::std::cmp::Eq for $thing {}
 
-        impl PartialOrd for $thing {
+        impl ::std::cmp::PartialOrd for $thing {
             #[inline]
             fn partial_cmp(&self, other: &$thing) -> Option<::std::cmp::Ordering> {
                 Some(self.cmp(&other))
             }
         }
 
-        impl Ord for $thing {
+        impl ::std::cmp::Ord for $thing {
             #[inline]
             fn cmp(&self, other: &$thing) -> ::std::cmp::Ordering {
                 // manually implement comparison to get little-endian ordering
@@ -134,14 +136,14 @@ macro_rules! impl_array_newtype {
         }
 
         #[cfg_attr(feature = "clippy", allow(expl_impl_clone_on_copy))] // we don't define the `struct`, we have to explicitly impl
-        impl Clone for $thing {
+        impl ::std::clone::Clone for $thing {
             #[inline]
             fn clone(&self) -> $thing {
                 $thing::from(&self[..])
             }
         }
 
-        impl Copy for $thing {}
+        impl ::std::marker::Copy for $thing {}
 
         impl ::std::hash::Hash for $thing {
             #[inline]
@@ -162,6 +164,8 @@ macro_rules! impl_array_newtype {
     }
 }
 
+/// Implements debug formatting for a given wrapper type
+#[macro_export]
 macro_rules! impl_array_newtype_show {
     ($thing:ident) => {
         impl ::std::fmt::Debug for $thing {
@@ -172,6 +176,8 @@ macro_rules! impl_array_newtype_show {
     }
 }
 
+/// Implements standard indexing methods for a given wrapper type
+#[macro_export]
 macro_rules! impl_index_newtype {
     ($thing:ident, $ty:ty) => {
         impl ::std::ops::Index<::std::ops::Range<usize>> for $thing {
