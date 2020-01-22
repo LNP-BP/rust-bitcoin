@@ -729,18 +729,6 @@ tuple_encode!(T0, T1, T2, T3);
 tuple_encode!(T0, T1, T2, T3, T4, T5);
 tuple_encode!(T0, T1, T2, T3, T4, T5, T6, T7);
 
-impl Encodable for sha256d::Hash {
-    fn consensus_encode<S: io::Write>(&self, s: S) -> Result<usize, Error> {
-        self.into_inner().consensus_encode(s)
-    }
-}
-
-impl Decodable for sha256d::Hash {
-    fn consensus_decode<D: io::Read>(d: D) -> Result<Self, Error> {
-        Ok(Self::from_inner(<<Self as Hash>::Inner>::consensus_decode(d)?))
-    }
-}
-
 // Tests
 #[cfg(test)]
 mod tests {
