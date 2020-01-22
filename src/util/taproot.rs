@@ -14,7 +14,7 @@
 //! Taproot
 //!
 
-use hashes::{sha256, sha256t};
+use hashes::{Hash, sha256t, hex::{ToHex, FromHex}};
 
 /// The SHA-256 midstate value for the TapLeaf hash.
 const MIDSTATE_TAPLEAF: [u8; 32] = [
@@ -50,13 +50,14 @@ const MIDSTATE_TAPSIGHASH: [u8; 32] = [
 /// - a sha256t::Hash type alias.
 #[macro_export]
 macro_rules! tagged_hash {
-	($name:ident, $tag:ident, $hash:ident, $midstate:ident) => {
-		/// The `$name` hash tag.
+	($hash:ident, $tag:ident, $midstate:ident, $docs:meta) => {
+		/// The `hash` hash tag.
 		#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
 		pub struct $tag;
 
 		impl sha256t::Tag for $tag {
 			fn engine() -> $crate::hashes::sha256::HashEngine {
+				use $crate::hashes::sha256;
 				//TODO(stevenroose) optimize this when following two PRs are merged:
 				// https://github.com/rust-bitcoin/bitcoin_hashes/pull/61
 				// https://github.com/rust-bitcoin/bitcoin_hashes/pull/62
@@ -65,15 +66,15 @@ macro_rules! tagged_hash {
 			}
 		}
 
-		/// A hash tagged with `$name`.
-		pub type $hash = sha256t::Hash<$tag>;
+		/// A hash tagged with midstate data.
+		hash_newtype!($hash, $crate::hashes::sha256t::Hash<$tag>, 32, $docs);
 	};
 }
 
-tagged_hash!(TapLeaf, TapLeafTag, TapLeafHash, MIDSTATE_TAPLEAF);
-tagged_hash!(TapBranch, TapBranchTag, TapBranchHash, MIDSTATE_TAPBRANCH);
-tagged_hash!(TapTweak, TapTweakTag, TapTweakHash, MIDSTATE_TAPTWEAK);
-tagged_hash!(TapSighash, TapSighashTag, TapSighashHash, MIDSTATE_TAPSIGHASH);
+tagged_hash!(TapLeafHash, TapLeafTag, MIDSTATE_TAPLEAF, doc="");
+tagged_hash!(TapBranchHash, TapBranchTag, MIDSTATE_TAPBRANCH, doc="");
+tagged_hash!(TapTweakHash, TapTweakTag, MIDSTATE_TAPTWEAK, doc="");
+tagged_hash!(TapSighashHash, TapSighashTag, MIDSTATE_TAPSIGHASH, doc="");
 
 #[cfg(test)]
 mod test {
