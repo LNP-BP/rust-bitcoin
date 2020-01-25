@@ -14,7 +14,7 @@
 //! Taproot
 //!
 
-use hashes::{Hash, sha256t, hex::{ToHex, FromHex}};
+use hashes::{Hash, sha256t};
 
 /// The SHA-256 midstate value for the TapLeaf hash.
 const MIDSTATE_TAPLEAF: [u8; 32] = [
