@@ -128,6 +128,19 @@ pub fn genesis_block(network: Network) -> Block {
                 txdata: txdata
             }
         }
+        Network::Signet => {
+            Block {
+                header: BlockHeader {
+                    version: 1,
+                    prev_blockhash: Default::default(),
+                    merkle_root,
+                    time: 1534313275,
+                    bits: 0x1e2adc28,
+                    nonce: 100123
+                },
+                txdata: txdata
+            }
+        }
         Network::Regtest => {
             Block {
                 header: BlockHeader {
@@ -203,6 +216,20 @@ mod test {
         assert_eq!(gen.header.nonce, 414098458);
         assert_eq!(format!("{:x}", gen.header.block_hash()),
                    "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943".to_string());
+    }
+
+    #[test]
+    fn signet_genesis_full_block() {
+        let gen = genesis_block(Network::Signet);
+        assert_eq!(gen.header.version, 1);
+        assert_eq!(gen.header.prev_blockhash, Default::default());
+        assert_eq!(format!("{:x}", gen.header.merkle_root),
+                  "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".to_string());
+        assert_eq!(gen.header.time, 1534313275);
+        assert_eq!(gen.header.bits, 0x1e2adc28);
+        assert_eq!(gen.header.nonce, 100123);
+        assert_eq!(format!("{:x}", gen.header.block_hash()),
+                   "0000032d7f67af9ec7b7152aea0fe7c95b9804ff973265e252f245e0ae61799d".to_string());
     }
 }
 
