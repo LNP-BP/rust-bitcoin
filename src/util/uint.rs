@@ -76,6 +76,7 @@ macro_rules! construct_uint {
             }
 
             /// Create an object from a given unsigned 64-bit integer
+            #[inline]
             pub fn from_u64(init: u64) -> Option<$name> {
                 let mut ret = [0; $n_words];
                 ret[0] = init;
@@ -83,9 +84,25 @@ macro_rules! construct_uint {
             }
 
             /// Create an object from a given signed 64-bit integer
+            #[inline]
             pub fn from_i64(init: i64) -> Option<$name> {
                 assert!(init >= 0);
                 $name::from_u64(init as u64)
+            }
+
+            /// Creates big integer value from a byte slice array using
+            /// big-endian encoding
+            pub fn from_be_bytes(bytes: [u8; ::std::mem::size_of::<Self>()]) -> Self {
+                let mut slice = [0u64; $n_words];
+                let data: Vec<u64> = (0..$n_words)
+                    .map(|n| {
+                        let mut a = [0u8; 8];
+                        a.copy_from_slice(&bytes[(n * 8)..(n * 8 + 8)]);
+                        u64::from_be_bytes(a)
+                    })
+                    .collect();
+                slice.copy_from_slice(&data);
+                Self(slice)
             }
         }
 
