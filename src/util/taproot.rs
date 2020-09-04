@@ -57,7 +57,7 @@ macro_rules! tagged_hash {
 
 		impl $crate::hashes::sha256t::Tag for $tag {
 			fn engine() -> $crate::hashes::sha256::HashEngine {
-				let midstate = $crate::hashes::sha256::Midstate::from_inner($midstate);
+				let midstate = $crate::hashes::sha256::Midstate::from_inner($midstate.clone());
 				$crate::hashes::sha256::HashEngine::from_midstate(midstate, 64)
 			}
 		}
