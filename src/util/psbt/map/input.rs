@@ -24,6 +24,25 @@ use util::psbt::map::Map;
 use util::psbt::raw;
 use util::psbt::Error;
 
+/// Type: Non-Witness UTXO PSBT_IN_NON_WITNESS_UTXO = 0x00
+const PSBT_IN_NON_WITNESS_UTXO: u8 = 0x00;
+/// Type: Witness UTXO PSBT_IN_WITNESS_UTXO = 0x01
+const PSBT_IN_WITNESS_UTXO: u8 = 0x01;
+/// Type: Partial Signature PSBT_IN_PARTIAL_SIG = 0x02
+const PSBT_IN_PARTIAL_SIG: u8 = 0x02;
+/// Type: Sighash Type PSBT_IN_SIGHASH_TYPE = 0x03
+const PSBT_IN_SIGHASH_TYPE: u8 = 0x03;
+/// Type: Redeem Script PSBT_IN_REDEEM_SCRIPT = 0x04
+const PSBT_IN_REDEEM_SCRIPT: u8 = 0x04;
+/// Type: Witness Script PSBT_IN_WITNESS_SCRIPT = 0x05
+const PSBT_IN_WITNESS_SCRIPT: u8 = 0x05;
+/// Type: BIP 32 Derivation Path PSBT_IN_BIP32_DERIVATION = 0x06
+const PSBT_IN_BIP32_DERIVATION: u8 = 0x06;
+/// Type: Finalized scriptSig PSBT_IN_FINAL_SCRIPTSIG = 0x07
+const PSBT_IN_FINAL_SCRIPTSIG: u8 = 0x07;
+/// Type: Finalized scriptWitness PSBT_IN_FINAL_SCRIPTWITNESS = 0x08
+const PSBT_IN_FINAL_SCRIPTWITNESS: u8 = 0x08;
+
 /// A key-value map for an input of the corresponding index in the unsigned
 /// transaction.
 #[derive(Clone, Default, Debug, PartialEq)]
@@ -67,49 +86,49 @@ impl Map for Input {
         } = pair;
 
         match raw_key.type_value {
-            0u8 => {
+            PSBT_IN_NON_WITNESS_UTXO => {
                 impl_psbt_insert_pair! {
                     self.non_witness_utxo <= <raw_key: _>|<raw_value: Transaction>
                 }
             }
-            1u8 => {
+            PSBT_IN_WITNESS_UTXO => {
                 impl_psbt_insert_pair! {
                     self.witness_utxo <= <raw_key: _>|<raw_value: TxOut>
                 }
             }
-            3u8 => {
-                impl_psbt_insert_pair! {
-                    self.sighash_type <= <raw_key: _>|<raw_value: SigHashType>
-                }
-            }
-            4u8 => {
-                impl_psbt_insert_pair! {
-                    self.redeem_script <= <raw_key: _>|<raw_value: Script>
-                }
-            }
-            5u8 => {
-                impl_psbt_insert_pair! {
-                    self.witness_script <= <raw_key: _>|<raw_value: Script>
-                }
-            }
-            7u8 => {
-                impl_psbt_insert_pair! {
-                    self.final_script_sig <= <raw_key: _>|<raw_value: Script>
-                }
-            }
-            8u8 => {
-                impl_psbt_insert_pair! {
-                    self.final_script_witness <= <raw_key: _>|<raw_value: Vec<Vec<u8>>>
-                }
-            }
-            2u8 => {
+            PSBT_IN_PARTIAL_SIG => {
                 impl_psbt_insert_pair! {
                     self.partial_sigs <= <raw_key: PublicKey>|<raw_value: Vec<u8>>
                 }
             }
-            6u8 => {
+            PSBT_IN_SIGHASH_TYPE => {
+                impl_psbt_insert_pair! {
+                    self.sighash_type <= <raw_key: _>|<raw_value: SigHashType>
+                }
+            }
+            PSBT_IN_REDEEM_SCRIPT => {
+                impl_psbt_insert_pair! {
+                    self.redeem_script <= <raw_key: _>|<raw_value: Script>
+                }
+            }
+            PSBT_IN_WITNESS_SCRIPT => {
+                impl_psbt_insert_pair! {
+                    self.witness_script <= <raw_key: _>|<raw_value: Script>
+                }
+            }
+            PSBT_IN_BIP32_DERIVATION => {
                 impl_psbt_insert_pair! {
                     self.hd_keypaths <= <raw_key: PublicKey>|<raw_value: (Fingerprint, DerivationPath)>
+                }
+            }
+            PSBT_IN_FINAL_SCRIPTSIG => {
+                impl_psbt_insert_pair! {
+                    self.final_script_sig <= <raw_key: _>|<raw_value: Script>
+                }
+            }
+            PSBT_IN_FINAL_SCRIPTWITNESS => {
+                impl_psbt_insert_pair! {
+                    self.final_script_witness <= <raw_key: _>|<raw_value: Vec<Vec<u8>>>
                 }
             }
             _ => match self.unknown.entry(raw_key) {
@@ -125,39 +144,39 @@ impl Map for Input {
         let mut rv: Vec<raw::Pair> = Default::default();
 
         impl_psbt_get_pair! {
-            rv.push(self.non_witness_utxo as <0u8, _>|<Transaction>)
+            rv.push(self.non_witness_utxo as <PSBT_IN_NON_WITNESS_UTXO, _>|<Transaction>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.witness_utxo as <1u8, _>|<TxOut>)
+            rv.push(self.witness_utxo as <PSBT_IN_WITNESS_UTXO, _>|<TxOut>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.partial_sigs as <2u8, PublicKey>|<Vec<u8>>)
+            rv.push(self.partial_sigs as <PSBT_IN_PARTIAL_SIG, PublicKey>|<Vec<u8>>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.sighash_type as <3u8, _>|<SigHashType>)
+            rv.push(self.sighash_type as <PSBT_IN_SIGHASH_TYPE, _>|<SigHashType>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.redeem_script as <4u8, _>|<Script>)
+            rv.push(self.redeem_script as <PSBT_IN_REDEEM_SCRIPT, _>|<Script>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.witness_script as <5u8, _>|<Script>)
+            rv.push(self.witness_script as <PSBT_IN_WITNESS_SCRIPT, _>|<Script>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.hd_keypaths as <6u8, PublicKey>|<(Fingerprint, DerivationPath)>)
+            rv.push(self.hd_keypaths as <PSBT_IN_BIP32_DERIVATION, PublicKey>|<(Fingerprint, DerivationPath)>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.final_script_sig as <7u8, _>|<Script>)
+            rv.push(self.final_script_sig as <PSBT_IN_FINAL_SCRIPTSIG, _>|<Script>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.final_script_witness as <8u8, _>|<Script>)
+            rv.push(self.final_script_witness as <PSBT_IN_FINAL_SCRIPTWITNESS, _>|<Script>)
         }
 
         for (key, value) in self.unknown.iter() {
