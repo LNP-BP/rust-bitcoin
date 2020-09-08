@@ -67,7 +67,7 @@ pub struct Input {
     pub witness_script: Option<Script>,
     /// A map from public keys needed to sign this input to their corresponding
     /// master key fingerprints and derivation paths.
-    pub hd_keypaths: BTreeMap<PublicKey, (Fingerprint, DerivationPath)>,
+    pub bip32_derivation: BTreeMap<PublicKey, (Fingerprint, DerivationPath)>,
     /// The finalized, fully-constructed scriptSig with signatures and any other
     /// scripts necessary for this input to pass validation.
     pub final_script_sig: Option<Script>,
@@ -118,7 +118,7 @@ impl Map for Input {
             }
             PSBT_IN_BIP32_DERIVATION => {
                 impl_psbt_insert_pair! {
-                    self.hd_keypaths <= <raw_key: PublicKey>|<raw_value: (Fingerprint, DerivationPath)>
+                    self.bip32_derivation <= <raw_key: PublicKey>|<raw_value: (Fingerprint, DerivationPath)>
                 }
             }
             PSBT_IN_FINAL_SCRIPTSIG => {
@@ -168,7 +168,7 @@ impl Map for Input {
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.hd_keypaths as <PSBT_IN_BIP32_DERIVATION, PublicKey>|<(Fingerprint, DerivationPath)>)
+            rv.push(self.bip32_derivation as <PSBT_IN_BIP32_DERIVATION, PublicKey>|<(Fingerprint, DerivationPath)>)
         }
 
         impl_psbt_get_pair! {
@@ -198,7 +198,7 @@ impl Map for Input {
         }
 
         self.partial_sigs.extend(other.partial_sigs);
-        self.hd_keypaths.extend(other.hd_keypaths);
+        self.bip32_derivation.extend(other.bip32_derivation);
         self.unknown.extend(other.unknown);
 
         merge!(redeem_script, self, other);
