@@ -25,6 +25,8 @@ use util::psbt::Error;
 
 /// Type: Unsigned Transaction PSBT_GLOBAL_UNSIGNED_TX = 0x00
 const PSBT_GLOBAL_UNSIGNED_TX: u8 = 0x00;
+/// Type: Proprietary Use Type PSBT_GLOBAL_PROPRIETARY = 0xFC
+const PSBT_GLOBAL_PROPRIETARY: u8 = 0xFC;
 
 /// A key-value map for global data.
 #[derive(Clone, Debug, PartialEq)]
@@ -32,6 +34,8 @@ pub struct Global {
     /// The unsigned transaction, scriptSigs and witnesses for each input must be
     /// empty.
     pub unsigned_tx: Transaction,
+    /// Global proprietary key-value pairs.
+    pub proprietary: BTreeMap<raw::Key, Vec<u8>>,
     /// Unknown global key-value pairs.
     pub unknown: BTreeMap<raw::Key, Vec<u8>>,
 }
@@ -51,6 +55,7 @@ impl Global {
 
         Ok(Global {
             unsigned_tx: tx,
+            proprietary: Default::default(),
             unknown: Default::default(),
         })
     }
@@ -65,6 +70,10 @@ impl Map for Global {
 
         match raw_key.type_value {
             PSBT_GLOBAL_UNSIGNED_TX => return Err(Error::DuplicateKey(raw_key).into()),
+            PSBT_GLOBAL_PROPRIETARY => match self.proprietary.entry(raw_key) {
+                Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
+                Entry::Occupied(k) => return Err(Error::DuplicateKey(k.key().clone()).into()),
+            }
             _ => match self.unknown.entry(raw_key) {
                 Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
                 Entry::Occupied(k) => return Err(Error::DuplicateKey(k.key().clone()).into()),
@@ -94,6 +103,13 @@ impl Map for Global {
             },
         });
 
+        for (key, value) in self.proprietary.iter() {
+            rv.push(raw::Pair {
+                key: key.clone(),
+                value: value.clone(),
+            });
+        }
+
         for (key, value) in self.unknown.iter() {
             rv.push(raw::Pair {
                 key: key.clone(),
@@ -112,6 +128,7 @@ impl Map for Global {
             });
         }
 
+        self.proprietary.extend(other.proprietary);
         self.unknown.extend(other.unknown);
         Ok(())
     }
@@ -124,6 +141,7 @@ impl Decodable for Global {
 
         let mut tx: Option<Transaction> = None;
         let mut unknowns: BTreeMap<raw::Key, Vec<u8>> = Default::default();
+        let mut proprietary: BTreeMap<raw::Key, Vec<u8>> = Default::default();
 
         loop {
             match raw::Pair::consensus_decode(&mut d) {
@@ -156,6 +174,10 @@ impl Decodable for Global {
                             } else {
                                 return Err(Error::InvalidKey(pair.key).into())
                             }
+                        }
+                        PSBT_GLOBAL_PROPRIETARY => match proprietary.entry(pair.key) {
+                            Entry::Vacant(empty_key) => {empty_key.insert(pair.value);},
+                            Entry::Occupied(k) => return Err(Error::DuplicateKey(k.key().clone()).into()),
                         }
                         _ => match unknowns.entry(pair.key) {
                             Entry::Vacant(empty_key) => {empty_key.insert(pair.value);},

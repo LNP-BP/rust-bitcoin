@@ -42,6 +42,8 @@ const PSBT_IN_BIP32_DERIVATION: u8 = 0x06;
 const PSBT_IN_FINAL_SCRIPTSIG: u8 = 0x07;
 /// Type: Finalized scriptWitness PSBT_IN_FINAL_SCRIPTWITNESS = 0x08
 const PSBT_IN_FINAL_SCRIPTWITNESS: u8 = 0x08;
+/// Type: Proprietary Use Type PSBT_IN_PROPRIETARY = 0xFC
+const PSBT_IN_PROPRIETARY: u8 = 0xFC;
 
 /// A key-value map for an input of the corresponding index in the unsigned
 /// transaction.
@@ -74,6 +76,8 @@ pub struct Input {
     /// The finalized, fully-constructed scriptWitness with signatures and any
     /// other scripts necessary for this input to pass validation.
     pub final_script_witness: Option<Vec<Vec<u8>>>,
+    /// Proprietary key-value pairs for this input.
+    pub proprietary: BTreeMap<raw::Key, Vec<u8>>,
     /// Unknown key-value pairs for this input.
     pub unknown: BTreeMap<raw::Key, Vec<u8>>,
 }
@@ -131,6 +135,10 @@ impl Map for Input {
                     self.final_script_witness <= <raw_key: _>|<raw_value: Vec<Vec<u8>>>
                 }
             }
+            PSBT_IN_PROPRIETARY => match self.proprietary.entry(raw_key) {
+                ::std::collections::btree_map::Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
+                ::std::collections::btree_map::Entry::Occupied(k) => return Err(Error::DuplicateKey(k.key().clone()).into()),
+            }
             _ => match self.unknown.entry(raw_key) {
                 ::std::collections::btree_map::Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
                 ::std::collections::btree_map::Entry::Occupied(k) => return Err(Error::DuplicateKey(k.key().clone()).into()),
@@ -179,6 +187,13 @@ impl Map for Input {
             rv.push(self.final_script_witness as <PSBT_IN_FINAL_SCRIPTWITNESS, _>|<Script>)
         }
 
+        for (key, value) in self.proprietary.iter() {
+            rv.push(raw::Pair {
+                key: key.clone(),
+                value: value.clone(),
+            });
+        }
+
         for (key, value) in self.unknown.iter() {
             rv.push(raw::Pair {
                 key: key.clone(),
@@ -199,6 +214,7 @@ impl Map for Input {
 
         self.partial_sigs.extend(other.partial_sigs);
         self.bip32_derivation.extend(other.bip32_derivation);
+        self.proprietary.extend(other.proprietary);
         self.unknown.extend(other.unknown);
 
         merge!(redeem_script, self, other);
