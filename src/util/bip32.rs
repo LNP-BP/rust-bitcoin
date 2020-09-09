@@ -17,13 +17,14 @@
 //! at https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
 
 use std::default::Default;
-use std::{error, fmt};
+use std::{error, fmt, io};
 use std::str::FromStr;
 #[cfg(feature = "serde")] use serde;
 
 use hash_types::XpubIdentifier;
 use hashes::{sha512, Hash, HashEngine, Hmac, HmacEngine};
 use secp256k1::{self, Secp256k1};
+use consensus::{encode, Encodable, Decodable};
 
 use network::constants::Network;
 use util::{base58, endian};
@@ -91,6 +92,21 @@ impl_array_newtype!(ChainCode, u8, 32);
 impl_array_newtype_show!(ChainCode);
 impl_bytes_newtype!(ChainCode, 32);
 
+impl Encodable for ChainCode {
+    fn consensus_encode<W: io::Write>(&self, mut e: W) -> Result<usize, encode::Error> {
+        e.write_all(&self.0)?;
+        Ok(self.len())
+    }
+}
+
+impl Decodable for ChainCode {
+    fn consensus_decode<D: io::Read>(mut d: D) -> Result<Self, encode::Error> {
+        let mut buf = [0u8; 32];
+        d.read_exact(&mut buf)?;
+        Ok(ChainCode(buf))
+    }
+}
+
 /// A fingerprint
 pub struct Fingerprint([u8; 4]);
 impl_array_newtype!(Fingerprint, u8, 4);
@@ -99,6 +115,21 @@ impl_bytes_newtype!(Fingerprint, 4);
 
 impl Default for Fingerprint {
     fn default() -> Fingerprint { Fingerprint([0; 4]) }
+}
+
+impl Encodable for Fingerprint {
+    fn consensus_encode<W: io::Write>(&self, mut e: W) -> Result<usize, encode::Error> {
+        e.write_all(&self.0)?;
+        Ok(self.len())
+    }
+}
+
+impl Decodable for Fingerprint {
+    fn consensus_decode<D: io::Read>(mut d: D) -> Result<Self, encode::Error> {
+        let mut buf = [0u8; 4];
+        d.read_exact(&mut buf)?;
+        Ok(Fingerprint(buf))
+    }
 }
 
 /// Structure holding 4 verion bytes with magical numbers representing different
@@ -356,6 +387,18 @@ impl FromStr for ChildNumber {
     }
 }
 
+impl Encodable for ChildNumber {
+    fn consensus_encode<W: io::Write>(&self, e: W) -> Result<usize, encode::Error> {
+        u32::from(*self).consensus_encode(e)
+    }
+}
+
+impl Decodable for ChildNumber {
+    fn consensus_decode<D: io::Read>(d: D) -> Result<Self, encode::Error> {
+        Ok(ChildNumber::from(u32::consensus_decode(d)?))
+    }
+}
+
 #[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for ChildNumber {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -608,6 +651,18 @@ impl KeyVersion {
     /// Converts into 4-byte array containing version byte values
     pub fn into_bytes(self) -> [u8; 4] {
         self.0
+    }
+}
+
+impl Encodable for KeyVersion {
+    fn consensus_encode<W: io::Write>(&self, e: W) -> Result<usize, encode::Error> {
+        self.to_u32().consensus_encode(e)
+    }
+}
+
+impl Decodable for KeyVersion {
+    fn consensus_decode<D: io::Read>(d: D) -> Result<Self, encode::Error> {
+        Ok(KeyVersion::from_u32(u32::consensus_decode(d)?))
     }
 }
 
@@ -1067,6 +1122,80 @@ impl<R: VersionResolver> FromStr for ExtendedPubKey<R> {
             public_key: PublicKey::from_slice(
                              &data[45..78]).map_err(|e|
                                  base58::Error::Other(e.to_string()))?,
+            _marker: Default::default()
+        })
+    }
+}
+
+impl<R: VersionResolver> Encodable for ExtendedPrivKey<R> {
+    fn consensus_encode<W: io::Write>(&self, mut e: W) -> Result<usize, encode::Error> {
+        let len = self.version.consensus_encode(&mut e)? +
+            self.depth.consensus_encode(&mut e)? +
+            self.parent_fingerprint.consensus_encode(&mut e)? +
+            self.child_number.consensus_encode(&mut e)? +
+            self.chain_code.consensus_encode(&mut e)?;
+        let key_data = &self.private_key.key[..];
+        e.write_all(key_data)?;
+        Ok(len + key_data.len())
+    }
+}
+
+impl<R: VersionResolver<Network=Network>> Decodable for ExtendedPrivKey<R> {
+    fn consensus_decode<D: io::Read>(mut d: D) -> Result<Self, encode::Error> {
+        let version = KeyVersion::consensus_decode(&mut d)?;
+        let depth = u8::consensus_decode(&mut d)?;
+        let parent_fingerprint = Fingerprint::consensus_decode(&mut d)?;
+        let child_number = ChildNumber::consensus_decode(&mut d)?;
+        let chain_code = ChainCode::consensus_decode(&mut d)?;
+        let mut buf = [0u8; secp256k1::constants::SECRET_KEY_SIZE];
+        d.read_exact(&mut buf)?;
+        let private_key = PrivateKey {
+            compressed: true,
+            network: version.network::<R>().ok_or(encode::Error::ParseFailed("version"))?,
+            key: secp256k1::SecretKey::from_slice(&buf).map_err(|_| encode::Error::ParseFailed("private key"))?,
+        };
+        Ok(ExtendedPrivKey {
+            version,
+            depth,
+            parent_fingerprint,
+            child_number,
+            private_key,
+            chain_code,
+            _marker: Default::default()
+        })
+    }
+}
+
+impl<R: VersionResolver> Encodable for ExtendedPubKey<R> {
+    fn consensus_encode<W: io::Write>(&self, mut e: W) -> Result<usize, encode::Error> {
+        let len = self.version.consensus_encode(&mut e)? +
+            self.depth.consensus_encode(&mut e)? +
+            self.parent_fingerprint.consensus_encode(&mut e)? +
+            self.child_number.consensus_encode(&mut e)? +
+            self.chain_code.consensus_encode(&mut e)?;
+        let key_data = self.public_key.key.serialize();
+        e.write_all(&key_data)?;
+        Ok(len + key_data.len())
+    }
+}
+
+impl<R: VersionResolver> Decodable for ExtendedPubKey<R> {
+    fn consensus_decode<D: io::Read>(mut d: D) -> Result<Self, encode::Error> {
+        let version = KeyVersion::consensus_decode(&mut d)?;
+        let depth = u8::consensus_decode(&mut d)?;
+        let parent_fingerprint = Fingerprint::consensus_decode(&mut d)?;
+        let child_number = ChildNumber::consensus_decode(&mut d)?;
+        let chain_code = ChainCode::consensus_decode(&mut d)?;
+        let mut buf = [0u8; secp256k1::constants::PUBLIC_KEY_SIZE];
+        d.read_exact(&mut buf)?;
+        let public_key = PublicKey::from_slice(&buf).map_err(|_| encode::Error::ParseFailed("public key"))?;
+        Ok(ExtendedPubKey {
+            version,
+            depth,
+            parent_fingerprint,
+            child_number,
+            public_key,
+            chain_code,
             _marker: Default::default()
         })
     }
