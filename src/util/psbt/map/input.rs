@@ -42,6 +42,8 @@ const PSBT_IN_BIP32_DERIVATION: u8 = 0x06;
 const PSBT_IN_FINAL_SCRIPTSIG: u8 = 0x07;
 /// Type: Finalized scriptWitness PSBT_IN_FINAL_SCRIPTWITNESS = 0x08
 const PSBT_IN_FINAL_SCRIPTWITNESS: u8 = 0x08;
+// TODO: Add types from https://github.com/rust-bitcoin/rust-bitcoin/pull/465
+//       once PR will be merged into master
 /// Type: Proprietary Use Type PSBT_IN_PROPRIETARY = 0xFC
 const PSBT_IN_PROPRIETARY: u8 = 0xFC;
 
