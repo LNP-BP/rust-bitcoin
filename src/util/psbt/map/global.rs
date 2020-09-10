@@ -22,9 +22,14 @@ use util::psbt::map::Map;
 use util::psbt::raw;
 use util::psbt;
 use util::psbt::Error;
+use util::bip32::{Fingerprint, DerivationPath, ExtendedPubKey};
 
 /// Type: Unsigned Transaction PSBT_GLOBAL_UNSIGNED_TX = 0x00
 const PSBT_GLOBAL_UNSIGNED_TX: u8 = 0x00;
+/// Type: Extended Public Key PSBT_GLOBAL_XPUB = 0x01
+const PSBT_GLOBAL_XPUB: u8 = 0x01;
+/// Type: Version Number PSBT_GLOBAL_VERSION = 0xFB
+const PSBT_GLOBAL_VERSION: u8 = 0xFB;
 /// Type: Proprietary Use Type PSBT_GLOBAL_PROPRIETARY = 0xFC
 const PSBT_GLOBAL_PROPRIETARY: u8 = 0xFC;
 
@@ -34,6 +39,11 @@ pub struct Global {
     /// The unsigned transaction, scriptSigs and witnesses for each input must be
     /// empty.
     pub unsigned_tx: Transaction,
+    /// A global map frpm extended public keys to the used key fingerprint and
+    /// derivation path as defined by BIP 32
+    pub xpub: BTreeMap<ExtendedPubKey, (Fingerprint, DerivationPath)>,
+    /// The version number of this PSBT. If ommitted, the version number is 0.
+    pub version: u32,
     /// Global proprietary key-value pairs.
     pub proprietary: BTreeMap<raw::Key, Vec<u8>>,
     /// Unknown global key-value pairs.
@@ -55,6 +65,8 @@ impl Global {
 
         Ok(Global {
             unsigned_tx: tx,
+            xpub: Default::default(),
+            version: 0,
             proprietary: Default::default(),
             unknown: Default::default(),
         })
@@ -68,8 +80,19 @@ impl Map for Global {
             value: raw_value,
         } = pair;
 
+        let mut version = None;
         match raw_key.type_value {
             PSBT_GLOBAL_UNSIGNED_TX => return Err(Error::DuplicateKey(raw_key).into()),
+            PSBT_GLOBAL_XPUB => {
+                impl_psbt_insert_pair! {
+                    self.xpub <= <raw_key: ExtendedPubKey>|<raw_value: (Fingerprint, DerivationPath)>
+                }
+            }
+            PSBT_GLOBAL_VERSION => {
+                impl_psbt_insert_pair! {
+                    version <= <raw_key: _>|<raw_value: u32>
+                }
+            },
             PSBT_GLOBAL_PROPRIETARY => match self.proprietary.entry(raw_key) {
                 Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
                 Entry::Occupied(k) => return Err(Error::DuplicateKey(k.key().clone()).into()),
@@ -78,6 +101,9 @@ impl Map for Global {
                 Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
                 Entry::Occupied(k) => return Err(Error::DuplicateKey(k.key().clone()).into()),
             }
+        }
+        if let Some(ver) = version {
+            self.version = ver;
         }
 
         Ok(())
