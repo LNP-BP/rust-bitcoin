@@ -77,7 +77,7 @@ pub struct Input {
     /// other scripts necessary for this input to pass validation.
     pub final_script_witness: Option<Vec<Vec<u8>>>,
     /// Proprietary key-value pairs for this input.
-    pub proprietary: BTreeMap<raw::Key, Vec<u8>>,
+    pub proprietary: BTreeMap<raw::ProprietaryKey, Vec<u8>>,
     /// Unknown key-value pairs for this input.
     pub unknown: BTreeMap<raw::Key, Vec<u8>>,
 }
@@ -135,9 +135,9 @@ impl Map for Input {
                     self.final_script_witness <= <raw_key: _>|<raw_value: Vec<Vec<u8>>>
                 }
             }
-            PSBT_IN_PROPRIETARY => match self.proprietary.entry(raw_key) {
+            PSBT_IN_PROPRIETARY => match self.proprietary.entry(raw::ProprietaryKey::from_key(raw_key.clone())?) {
                 ::std::collections::btree_map::Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
-                ::std::collections::btree_map::Entry::Occupied(k) => return Err(Error::DuplicateKey(k.key().clone()).into()),
+                ::std::collections::btree_map::Entry::Occupied(_) => return Err(Error::DuplicateKey(raw_key).into()),
             }
             _ => match self.unknown.entry(raw_key) {
                 ::std::collections::btree_map::Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
@@ -189,7 +189,7 @@ impl Map for Input {
 
         for (key, value) in self.proprietary.iter() {
             rv.push(raw::Pair {
-                key: key.clone(),
+                key: key.to_key(),
                 value: value.clone(),
             });
         }

@@ -19,7 +19,7 @@
 
 use std::{fmt, io};
 
-use consensus::encode::{self, Decodable, Encodable, VarInt, MAX_VEC_SIZE};
+use consensus::encode::{self, ReadExt, WriteExt, Decodable, Encodable, VarInt, serialize, deserialize, MAX_VEC_SIZE};
 use hashes::hex::ToHex;
 use util::psbt::Error;
 
@@ -39,6 +39,23 @@ pub struct Pair {
     pub key: Key,
     /// The value of this key-value pair in raw byte form.
     pub value: Vec<u8>,
+}
+
+/// Default implementation for proprietary key subtyping
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct ProprietaryType;
+
+/// Proprietary keys (i.e. keys starting with 0xFC byte) with their internal
+/// structure according to BIP 174.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct ProprietaryKey<Subtype = ProprietaryType> where Subtype: Copy + From<u8> + Into<u8> {
+    /// Proprietary type prefix used for grouping together keys under some
+    /// application and avoid namespace collision
+    pub prefix: Vec<u8>,
+    /// Custom proprietary subtype
+    pub subtype: Subtype,
+    /// Additional key bytes (like serialized public key data etc)
+    pub key: Vec<u8>,
 }
 
 impl fmt::Display for Key {
@@ -117,5 +134,64 @@ impl Decodable for Pair {
             key: Decodable::consensus_decode(&mut d)?,
             value: Decodable::consensus_decode(d)?,
         })
+    }
+}
+
+impl From<u8> for ProprietaryType {
+    fn from(_: u8) -> Self {
+        ProprietaryType
+    }
+}
+
+impl Into<u8> for ProprietaryType {
+    fn into(self) -> u8 {
+        0u8
+    }
+}
+
+impl<Subtype> Encodable for ProprietaryKey<Subtype> where Subtype: Copy + From<u8> + Into<u8> {
+    fn consensus_encode<W: io::Write>(&self, mut e: W) -> Result<usize, encode::Error> {
+        let mut len = self.prefix.consensus_encode(&mut e)? + 1;
+        e.emit_u8(self.subtype.into())?;
+        len += e.write(&self.key)?;
+        Ok(len)
+    }
+}
+
+impl<Subtype> Decodable for ProprietaryKey<Subtype> where Subtype: Copy + From<u8> + Into<u8> {
+    fn consensus_decode<D: io::Read>(mut d: D) -> Result<Self, encode::Error> {
+        let VarInt(prefix_size) = VarInt::consensus_decode(&mut d)?;
+
+        let mut prefix = vec![0u8; prefix_size as usize];
+        let mut key = vec![];
+        d.read_exact(&mut prefix)?;
+        let subtype = Subtype::from(d.read_u8()?);
+        d.read_to_end(&mut key)?;
+
+        Ok(ProprietaryKey {
+            prefix,
+            subtype,
+            key
+        })
+    }
+}
+
+impl<Subtype> ProprietaryKey<Subtype> where Subtype: Copy + From<u8> + Into<u8> {
+    /// Constructs [ProprietaryKey] from [Key]; returns
+    /// [Error::InvalidProprietaryKey] if `key` do not starts with 0xFC byte
+    pub fn from_key(key: Key) -> Result<Self, Error> {
+        if key.type_value != 0xFC {
+            return Err(Error::InvalidProprietaryKey)
+        }
+
+        Ok(deserialize(&key.key)?)
+    }
+
+    /// Constructs full [Key] corresponding to this proprietary key type
+    pub fn to_key(&self) -> Key {
+        Key {
+            type_value: 0xFC,
+            key: serialize(self)
+        }
     }
 }

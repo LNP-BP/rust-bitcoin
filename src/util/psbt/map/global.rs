@@ -45,7 +45,7 @@ pub struct Global {
     /// The version number of this PSBT. If ommitted, the version number is 0.
     pub version: u32,
     /// Global proprietary key-value pairs.
-    pub proprietary: BTreeMap<raw::Key, Vec<u8>>,
+    pub proprietary: BTreeMap<raw::ProprietaryKey, Vec<u8>>,
     /// Unknown global key-value pairs.
     pub unknown: BTreeMap<raw::Key, Vec<u8>>,
 }
@@ -93,9 +93,9 @@ impl Map for Global {
                     version <= <raw_key: _>|<raw_value: u32>
                 }
             },
-            PSBT_GLOBAL_PROPRIETARY => match self.proprietary.entry(raw_key) {
+            PSBT_GLOBAL_PROPRIETARY => match self.proprietary.entry(raw::ProprietaryKey::from_key(raw_key.clone())?) {
                 Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
-                Entry::Occupied(k) => return Err(Error::DuplicateKey(k.key().clone()).into()),
+                Entry::Occupied(_) => return Err(Error::DuplicateKey(raw_key).into()),
             }
             _ => match self.unknown.entry(raw_key) {
                 Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
@@ -131,7 +131,7 @@ impl Map for Global {
 
         for (key, value) in self.proprietary.iter() {
             rv.push(raw::Pair {
-                key: key.clone(),
+                key: key.to_key(),
                 value: value.clone(),
             });
         }
@@ -167,7 +167,7 @@ impl Decodable for Global {
 
         let mut tx: Option<Transaction> = None;
         let mut unknowns: BTreeMap<raw::Key, Vec<u8>> = Default::default();
-        let mut proprietary: BTreeMap<raw::Key, Vec<u8>> = Default::default();
+        let mut proprietary: BTreeMap<raw::ProprietaryKey, Vec<u8>> = Default::default();
 
         loop {
             match raw::Pair::consensus_decode(&mut d) {
@@ -201,9 +201,9 @@ impl Decodable for Global {
                                 return Err(Error::InvalidKey(pair.key).into())
                             }
                         }
-                        PSBT_GLOBAL_PROPRIETARY => match proprietary.entry(pair.key) {
+                        PSBT_GLOBAL_PROPRIETARY => match proprietary.entry(raw::ProprietaryKey::from_key(pair.key.clone())?) {
                             Entry::Vacant(empty_key) => {empty_key.insert(pair.value);},
-                            Entry::Occupied(k) => return Err(Error::DuplicateKey(k.key().clone()).into()),
+                            Entry::Occupied(_) => return Err(Error::DuplicateKey(pair.key).into()),
                         }
                         _ => match unknowns.entry(pair.key) {
                             Entry::Vacant(empty_key) => {empty_key.insert(pair.value);},
