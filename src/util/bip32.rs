@@ -529,7 +529,11 @@ pub enum Error {
     /// Invalid derivation path format.
     InvalidDerivationPathFormat,
     /// Unknown version magic bytes
-    UnknownVersion([u8; 4])
+    UnknownVersion([u8; 4]),
+    /// Encoded extended key data have wrong length
+    WrongExtendedKeyLength(usize),
+    /// Base58 encoding error
+    Base58(base58::Error)
 }
 
 impl fmt::Display for Error {
@@ -542,6 +546,8 @@ impl fmt::Display for Error {
             Error::InvalidChildNumberFormat => f.write_str("invalid child number format"),
             Error::InvalidDerivationPathFormat => f.write_str("invalid derivation path format"),
             Error::UnknownVersion(ref bytes) => write!(f, "unknown version magic bytes: {:?}", bytes),
+            Error::WrongExtendedKeyLength(ref len) => write!(f, "encoded extended key data have wrong length {}", len),
+            Error::Base58(ref err) => write!(f, "base58 encoding error: {}", err),
         }
     }
 }
@@ -562,6 +568,18 @@ impl error::Error for Error {
 
 impl From<secp256k1::Error> for Error {
     fn from(e: secp256k1::Error) -> Error { Error::Ecdsa(e) }
+}
+
+impl From<base58::Error> for Error {
+    fn from(err: base58::Error) -> Self {
+        Error::Base58(err)
+    }
+}
+
+impl From<Error> for base58::Error {
+    fn from(err: Error) -> Self {
+        base58::Error::Other(err.to_string())
+    }
 }
 
 impl KeyVersion {
@@ -955,51 +973,19 @@ impl<R: VersionResolver<Network=Network>> ExtendedPubKey<R> {
     }
 }
 
-impl<R: VersionResolver> ExtendedPubKey<R> {
-    /// Returns the HASH160 of the chaincode
-    pub fn identifier(&self) -> XpubIdentifier {
-        let mut engine = XpubIdentifier::engine();
-        self.public_key.write_into(&mut engine);
-        XpubIdentifier::from_engine(engine)
-    }
-
-    /// Returns the first four bytes of the identifier
-    pub fn fingerprint(&self) -> Fingerprint {
-        Fingerprint::from(&self.identifier()[0..4])
-    }
-}
-
-impl<R: VersionResolver> fmt::Display for ExtendedPrivKey<R> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        let mut ret = [0; 78];
-        ret[0..4].copy_from_slice(self.version.as_bytes());
-        ret[4] = self.depth as u8;
-        ret[5..9].copy_from_slice(&self.parent_fingerprint[..]);
-        ret[9..13].copy_from_slice(&endian::u32_to_array_be(u32::from(self.child_number)));
-        ret[13..45].copy_from_slice(&self.chain_code[..]);
-        ret[45] = 0;
-        ret[46..78].copy_from_slice(&self.private_key[..]);
-        fmt.write_str(&base58::check_encode_slice(&ret[..]))
-    }
-}
-
-impl<R: VersionResolver> FromStr for ExtendedPrivKey<R> {
-    type Err = base58::Error;
-
-    fn from_str(inp: &str) -> Result<ExtendedPrivKey<R>, base58::Error> {
-        let data = base58::from_check(inp)?;
-
+impl<R: VersionResolver> ExtendedPrivKey<R> {
+    /// Decoding extended private key from binary data according to BIP 32
+    pub fn decode(data: &[u8]) -> Result<ExtendedPrivKey<R>, Error> {
         if data.len() != 78 {
-            return Err(base58::Error::InvalidLength(data.len()));
+            return Err(Error::WrongExtendedKeyLength(data.len()))
         }
 
         let cn_int: u32 = endian::slice_to_u32_be(&data[9..13]);
         let child_number: ChildNumber = ChildNumber::from(cn_int);
 
-        let ver_bytes = &data[0..4];
-        let invalid_ver_err = base58::Error::InvalidVersion(ver_bytes.to_vec());
-        let kv = KeyVersion::from_slice(&ver_bytes)
-            .ok_or(invalid_ver_err.clone())?;
+        let ver_bytes = [data[0], data[1], data[2], data[3]];
+        let invalid_ver_err = Error::UnknownVersion(ver_bytes);
+        let kv = KeyVersion::from_bytes(ver_bytes);
         if !kv.is_prv::<R>().ok_or(invalid_ver_err.clone())? {
             return Err(invalid_ver_err.clone());
         }
@@ -1022,10 +1008,53 @@ impl<R: VersionResolver> FromStr for ExtendedPrivKey<R> {
             _marker: Default::default()
         })
     }
+
+    /// Extended private key binary encoding according to BIP 32
+    pub fn encode(&self) -> [u8; 78] {
+        let mut ret = [0; 78];
+        ret[0..4].copy_from_slice(self.version.as_bytes());
+        ret[4] = self.depth as u8;
+        ret[5..9].copy_from_slice(&self.parent_fingerprint[..]);
+        ret[9..13].copy_from_slice(&endian::u32_to_array_be(u32::from(self.child_number)));
+        ret[13..45].copy_from_slice(&self.chain_code[..]);
+        ret[45] = 0;
+        ret[46..78].copy_from_slice(&self.private_key[..]);
+        ret
+    }
 }
 
-impl<R: VersionResolver> fmt::Display for ExtendedPubKey<R> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+impl<R: VersionResolver> ExtendedPubKey<R> {
+    /// Decoding extended public key from binary data according to BIP 32
+    pub fn decode(data: &[u8]) -> Result<ExtendedPubKey<R>, Error> {
+        if data.len() != 78 {
+            return Err(Error::WrongExtendedKeyLength(data.len()))
+        }
+
+        let cn_int: u32 = endian::slice_to_u32_be(&data[9..13]);
+        let child_number: ChildNumber = ChildNumber::from(cn_int);
+
+        let ver_bytes = [data[0], data[1], data[2], data[3]];
+        let invalid_ver_err = Error::UnknownVersion(ver_bytes);
+        let kv = KeyVersion::from_bytes(ver_bytes);
+        if !kv.is_pub::<R>().ok_or(invalid_ver_err.clone())? {
+            return Err(invalid_ver_err);
+        }
+
+        Ok(ExtendedPubKey {
+            version: kv,
+            depth: data[4],
+            parent_fingerprint: Fingerprint::from(&data[5..9]),
+            child_number: child_number,
+            chain_code: ChainCode::from(&data[13..45]),
+            public_key: PublicKey::from_slice(
+                &data[45..78]).map_err(|e|
+                base58::Error::Other(e.to_string()))?,
+            _marker: Default::default()
+        })
+    }
+
+    /// Extended public key binary encoding according to BIP 32
+    pub fn encode(&self) -> [u8; 78] {
         let mut ret = [0; 78];
         ret[0..4].copy_from_slice(self.version.as_bytes());
         ret[4] = self.depth as u8;
@@ -1033,7 +1062,45 @@ impl<R: VersionResolver> fmt::Display for ExtendedPubKey<R> {
         ret[9..13].copy_from_slice(&endian::u32_to_array_be(u32::from(self.child_number)));
         ret[13..45].copy_from_slice(&self.chain_code[..]);
         ret[45..78].copy_from_slice(&self.public_key.key.serialize()[..]);
-        fmt.write_str(&base58::check_encode_slice(&ret[..]))
+        ret
+    }
+
+    /// Returns the HASH160 of the chaincode
+    pub fn identifier(&self) -> XpubIdentifier {
+        let mut engine = XpubIdentifier::engine();
+        self.public_key.write_into(&mut engine);
+        XpubIdentifier::from_engine(engine)
+    }
+
+    /// Returns the first four bytes of the identifier
+    pub fn fingerprint(&self) -> Fingerprint {
+        Fingerprint::from(&self.identifier()[0..4])
+    }
+}
+
+impl<R: VersionResolver> fmt::Display for ExtendedPrivKey<R> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.write_str(&base58::check_encode_slice(&self.encode()[..]))
+    }
+}
+
+impl<R: VersionResolver> FromStr for ExtendedPrivKey<R> {
+    type Err = base58::Error;
+
+    fn from_str(inp: &str) -> Result<ExtendedPrivKey<R>, base58::Error> {
+        let data = base58::from_check(inp)?;
+
+        if data.len() != 78 {
+            return Err(base58::Error::InvalidLength(data.len()));
+        }
+
+        Ok(ExtendedPrivKey::<R>::decode(&data[..])?)
+    }
+}
+
+impl<R: VersionResolver> fmt::Display for ExtendedPubKey<R> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.write_str(&base58::check_encode_slice(&self.encode()[..]))
     }
 }
 
@@ -1047,28 +1114,7 @@ impl<R: VersionResolver> FromStr for ExtendedPubKey<R> {
             return Err(base58::Error::InvalidLength(data.len()));
         }
 
-        let cn_int: u32 = endian::slice_to_u32_be(&data[9..13]);
-        let child_number: ChildNumber = ChildNumber::from(cn_int);
-
-        let ver_bytes = &data[0..4];
-        let invalid_ver_err = base58::Error::InvalidVersion(ver_bytes.to_vec());
-        let kv = KeyVersion::from_slice(&ver_bytes)
-            .ok_or(invalid_ver_err.clone())?;
-        if !kv.is_pub::<R>().ok_or(invalid_ver_err.clone())? {
-            return Err(invalid_ver_err);
-        }
-
-        Ok(ExtendedPubKey {
-            version: kv,
-            depth: data[4],
-            parent_fingerprint: Fingerprint::from(&data[5..9]),
-            child_number: child_number,
-            chain_code: ChainCode::from(&data[13..45]),
-            public_key: PublicKey::from_slice(
-                             &data[45..78]).map_err(|e|
-                                 base58::Error::Other(e.to_string()))?,
-            _marker: Default::default()
-        })
+        Ok(ExtendedPubKey::<R>::decode(&data[..])?)
     }
 }
 
