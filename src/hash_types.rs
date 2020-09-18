@@ -16,16 +16,19 @@
 //! to avoid mixing data of the same hash format (like SHA256d) but of different meaning
 //! (transaction id, block hash etc).
 
+use std::io;
 use consensus::encode::{Encodable, Decodable, Error};
-use hashes::{Hash, sha256, sha256d, ripemd160, hash160};
+use hashes::{Hash, sha256, sha256d, sha256t, ripemd160, hash160};
 use hashes::hex::{FromHex, ToHex};
 use util::key::PublicKey;
 
+#[macro_export]
+/// Implements consensus::encode traits for a given Hash data type
 macro_rules! impl_hashencode {
-    ($hashtype:ident) => {
+    ($hashtype:ty) => {
         impl $crate::consensus::Encodable for $hashtype {
             fn consensus_encode<S: ::std::io::Write>(&self, s: S) -> Result<usize, $crate::consensus::encode::Error> {
-                self.0.consensus_encode(s)
+                self.into_inner().consensus_encode(s)
             }
         }
 
@@ -55,6 +58,20 @@ hash_newtype!(XpubIdentifier, hash160::Hash, 20, doc="XpubIdentifier as defined 
 
 hash_newtype!(FilterHash, sha256d::Hash, 32, doc="Bloom filter souble-SHA256 locator hash, as defined in BIP-168");
 
+impl_hashencode!(sha256::Hash);
+impl_hashencode!(sha256d::Hash);
+
+impl<T> Encodable for sha256t::Hash<T> where T: sha256t::Tag {
+    fn consensus_encode<S: io::Write>(&self, s: S) -> Result<usize, Error> {
+        self.into_inner().consensus_encode(s)
+    }
+}
+
+impl<T> Decodable for sha256t::Hash<T> where T: sha256t::Tag {
+    fn consensus_decode<D: io::Read>(d: D) -> Result<Self, Error> {
+        Ok(Self::from_inner(<<Self as Hash>::Inner>::consensus_decode(d)?))
+    }
+}
 
 impl_hashencode!(Txid);
 impl_hashencode!(Wtxid);
