@@ -24,6 +24,15 @@ use util::psbt::map::Map;
 use util::psbt::raw;
 use util::psbt::Error;
 
+/// Type: Redeem Script PSBT_OUT_REDEEM_SCRIPT = 0x00
+const PSBT_OUT_REDEEM_SCRIPT: u8 = 0x00;
+/// Type: Witness Script PSBT_OUT_WITNESS_SCRIPT = 0x01
+const PSBT_OUT_WITNESS_SCRIPT: u8 = 0x01;
+/// Type: BIP 32 Derivation Path PSBT_OUT_BIP32_DERIVATION = 0x02
+const PSBT_OUT_BIP32_DERIVATION: u8 = 0x02;
+/// Type: Proprietary Use Type PSBT_IN_PROPRIETARY = 0xFC
+const PSBT_OUT_PROPRIETARY: u8 = 0xFC;
+
 /// A key-value map for an output of the corresponding index in the unsigned
 /// transaction.
 #[derive(Clone, Default, Debug, PartialEq)]
@@ -34,7 +43,9 @@ pub struct Output {
     pub witness_script: Option<Script>,
     /// A map from public keys needed to spend this output to their
     /// corresponding master key fingerprints and derivation paths.
-    pub hd_keypaths: BTreeMap<PublicKey, KeySource>,
+    pub bip32_derivation: BTreeMap<PublicKey, KeySource>,
+    /// Proprietary key-value pairs for this output.
+    pub proprietary: BTreeMap<raw::ProprietaryKey, Vec<u8>>,
     /// Unknown key-value pairs for this output.
     pub unknown: BTreeMap<raw::Key, Vec<u8>>,
 }
@@ -47,20 +58,24 @@ impl Map for Output {
         } = pair;
 
         match raw_key.type_value {
-            0u8 => {
+            PSBT_OUT_REDEEM_SCRIPT => {
                 impl_psbt_insert_pair! {
                     self.redeem_script <= <raw_key: _>|<raw_value: Script>
                 }
             }
-            1u8 => {
+            PSBT_OUT_WITNESS_SCRIPT => {
                 impl_psbt_insert_pair! {
                     self.witness_script <= <raw_key: _>|<raw_value: Script>
                 }
             }
-            2u8 => {
+            PSBT_OUT_BIP32_DERIVATION => {
                 impl_psbt_insert_pair! {
-                    self.hd_keypaths <= <raw_key: PublicKey>|<raw_value: KeySource>
+                    self.bip32_derivation <= <raw_key: PublicKey>|<raw_value: KeySource>
                 }
+            }
+            PSBT_OUT_PROPRIETARY => match self.proprietary.entry(raw::ProprietaryKey::from_key(raw_key.clone())?) {
+                Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
+                Entry::Occupied(_) => return Err(Error::DuplicateKey(raw_key.clone()).into()),
             }
             _ => match self.unknown.entry(raw_key) {
                     Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
@@ -75,15 +90,22 @@ impl Map for Output {
         let mut rv: Vec<raw::Pair> = Default::default();
 
         impl_psbt_get_pair! {
-            rv.push(self.redeem_script as <0u8, _>|<Script>)
+            rv.push(self.redeem_script as <PSBT_OUT_REDEEM_SCRIPT, _>|<Script>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.witness_script as <1u8, _>|<Script>)
+            rv.push(self.witness_script as <PSBT_OUT_WITNESS_SCRIPT, _>|<Script>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.hd_keypaths as <2u8, PublicKey>|<KeySource>)
+            rv.push(self.bip32_derivation as <PSBT_OUT_BIP32_DERIVATION, PublicKey>|<(Fingerprint, DerivationPath)>)
+        }
+
+        for (key, value) in self.proprietary.iter() {
+            rv.push(raw::Pair {
+                key: key.to_key(),
+                value: value.clone(),
+            });
         }
 
         for (key, value) in self.unknown.iter() {
@@ -97,7 +119,8 @@ impl Map for Output {
     }
 
     fn merge(&mut self, other: Self) -> Result<(), psbt::Error> {
-        self.hd_keypaths.extend(other.hd_keypaths);
+        self.bip32_derivation.extend(other.bip32_derivation);
+        self.proprietary.extend(other.proprietary);
         self.unknown.extend(other.unknown);
 
         merge!(redeem_script, self, other);

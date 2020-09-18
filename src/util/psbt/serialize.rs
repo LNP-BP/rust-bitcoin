@@ -21,9 +21,9 @@ use std::io;
 
 use blockdata::script::Script;
 use blockdata::transaction::{SigHashType, Transaction, TxOut};
-use consensus::encode::{self, serialize, Decodable};
+use consensus::encode::{self, serialize, Decodable, Error};
 use hashes::{hash160, ripemd160, sha256, sha256d, Hash};
-use util::bip32::{ChildNumber, Fingerprint, KeySource};
+use util::bip32::{ChildNumber, KeySource, Fingerprint, ExtendedPubKey, VersionResolver};
 use util::key::PublicKey;
 use util::psbt;
 
@@ -40,6 +40,7 @@ pub trait Deserialize: Sized {
     fn deserialize(bytes: &[u8]) -> Result<Self, encode::Error>;
 }
 
+impl_psbt_de_serialize!(u32);
 impl_psbt_de_serialize!(Transaction);
 impl_psbt_de_serialize!(TxOut);
 impl_psbt_de_serialize!(Vec<Vec<u8>>); // scriptWitness
@@ -72,6 +73,19 @@ impl Deserialize for PublicKey {
     fn deserialize(bytes: &[u8]) -> Result<Self, encode::Error> {
         PublicKey::from_slice(bytes)
             .map_err(|_| encode::Error::ParseFailed("invalid public key"))
+    }
+}
+
+impl<R: VersionResolver> Serialize for ExtendedPubKey<R> {
+    fn serialize(&self) -> Vec<u8> {
+        self.encode().to_vec()
+    }
+}
+
+impl<R: VersionResolver> Deserialize for ExtendedPubKey<R> {
+    fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
+        ExtendedPubKey::<R>::decode(&bytes)
+            .map_err(|_| Error::ParseFailed("xpub parse error"))
     }
 }
 

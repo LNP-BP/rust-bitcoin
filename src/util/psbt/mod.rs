@@ -252,9 +252,8 @@ mod tests {
 
     use blockdata::script::Script;
     use blockdata::transaction::{Transaction, TxIn, TxOut, OutPoint};
-    use network::constants::Network::Bitcoin;
     use consensus::encode::{deserialize, serialize, serialize_hex};
-    use util::bip32::{ChildNumber, ExtendedPrivKey, ExtendedPubKey, Fingerprint, KeySource};
+    use util::bip32::{ChildNumber, KeySource, ExtendedPrivKey, ExtendedPubKey, Fingerprint, DefaultResolver, KeyVersion, VERSION_MAGIC_XPRV};
     use util::key::PublicKey;
     use util::psbt::map::{Global, Output, Input};
     use util::psbt::raw;
@@ -271,6 +270,9 @@ mod tests {
                     input: vec![],
                     output: vec![],
                 },
+                xpub: BTreeMap::new(),
+                version: 0,
+                proprietary: BTreeMap::new(),
                 unknown: BTreeMap::new(),
             },
             inputs: vec![],
@@ -289,9 +291,9 @@ mod tests {
 
         let mut hd_keypaths: BTreeMap<PublicKey, KeySource> = Default::default();
 
-        let mut sk: ExtendedPrivKey = ExtendedPrivKey::new_master(Bitcoin, &seed).unwrap();
+        let mut sk: ExtendedPrivKey<DefaultResolver> = ExtendedPrivKey::new_master(KeyVersion::from_bytes(VERSION_MAGIC_XPRV), &seed).unwrap();
 
-        let fprint: Fingerprint = sk.fingerprint(&secp);
+        let fprint: Fingerprint = sk.fingerprint(&secp).unwrap();
 
         let dpath: Vec<ChildNumber> = vec![
             ChildNumber::from_normal_idx(0).unwrap(),
@@ -306,7 +308,7 @@ mod tests {
 
         sk = sk.derive_priv(secp, &dpath).unwrap();
 
-        let pk: ExtendedPubKey = ExtendedPubKey::from_private(&secp, &sk);
+        let pk: ExtendedPubKey<DefaultResolver> = ExtendedPubKey::from_private(&secp, &sk).unwrap();
 
         hd_keypaths.insert(pk.public_key, (fprint, dpath.into()));
 
@@ -317,7 +319,7 @@ mod tests {
             witness_script: Some(hex_script!(
                 "a9143545e6e33b832c47050f24d3eeb93c9c03948bc787"
             )),
-            hd_keypaths: hd_keypaths,
+            bip32_derivation: hd_keypaths,
             ..Default::default()
         };
 
@@ -358,6 +360,9 @@ mod tests {
                     },
                 ],
             },
+            xpub: Default::default(),
+            version: 0,
+            proprietary: Default::default(),
             unknown: Default::default(),
         };
 
@@ -460,6 +465,9 @@ mod tests {
                             },
                         ],
                     },
+                    xpub: BTreeMap::new(),
+                    version: 0,
+                    proprietary: BTreeMap::new(),
                     unknown: BTreeMap::new(),
                 },
                 inputs: vec![Input {
@@ -683,6 +691,9 @@ mod tests {
                         },
                     ],
                 },
+                xpub: Default::default(),
+                version: 0,
+                proprietary: Default::default(),
                 unknown: BTreeMap::new(),
             },
             inputs: vec![Input {

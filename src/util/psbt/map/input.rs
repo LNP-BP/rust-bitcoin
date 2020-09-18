@@ -25,6 +25,29 @@ use util::psbt::map::Map;
 use util::psbt::raw;
 use util::psbt::Error;
 
+/// Type: Non-Witness UTXO PSBT_IN_NON_WITNESS_UTXO = 0x00
+const PSBT_IN_NON_WITNESS_UTXO: u8 = 0x00;
+/// Type: Witness UTXO PSBT_IN_WITNESS_UTXO = 0x01
+const PSBT_IN_WITNESS_UTXO: u8 = 0x01;
+/// Type: Partial Signature PSBT_IN_PARTIAL_SIG = 0x02
+const PSBT_IN_PARTIAL_SIG: u8 = 0x02;
+/// Type: Sighash Type PSBT_IN_SIGHASH_TYPE = 0x03
+const PSBT_IN_SIGHASH_TYPE: u8 = 0x03;
+/// Type: Redeem Script PSBT_IN_REDEEM_SCRIPT = 0x04
+const PSBT_IN_REDEEM_SCRIPT: u8 = 0x04;
+/// Type: Witness Script PSBT_IN_WITNESS_SCRIPT = 0x05
+const PSBT_IN_WITNESS_SCRIPT: u8 = 0x05;
+/// Type: BIP 32 Derivation Path PSBT_IN_BIP32_DERIVATION = 0x06
+const PSBT_IN_BIP32_DERIVATION: u8 = 0x06;
+/// Type: Finalized scriptSig PSBT_IN_FINAL_SCRIPTSIG = 0x07
+const PSBT_IN_FINAL_SCRIPTSIG: u8 = 0x07;
+/// Type: Finalized scriptWitness PSBT_IN_FINAL_SCRIPTWITNESS = 0x08
+const PSBT_IN_FINAL_SCRIPTWITNESS: u8 = 0x08;
+// TODO: Add types from https://github.com/rust-bitcoin/rust-bitcoin/pull/465
+//       once PR will be merged into master
+/// Type: Proprietary Use Type PSBT_IN_PROPRIETARY = 0xFC
+const PSBT_IN_PROPRIETARY: u8 = 0xFC;
+
 /// A key-value map for an input of the corresponding index in the unsigned
 /// transaction.
 #[derive(Clone, Default, Debug, PartialEq)]
@@ -49,7 +72,7 @@ pub struct Input {
     pub witness_script: Option<Script>,
     /// A map from public keys needed to sign this input to their corresponding
     /// master key fingerprints and derivation paths.
-    pub hd_keypaths: BTreeMap<PublicKey, KeySource>,
+    pub bip32_derivation: BTreeMap<PublicKey, KeySource>,
     /// The finalized, fully-constructed scriptSig with signatures and any other
     /// scripts necessary for this input to pass validation.
     pub final_script_sig: Option<Script>,
@@ -65,6 +88,8 @@ pub struct Input {
     pub hash160_preimages: BTreeMap<hash160::Hash, Vec<u8>>,
     /// HAS256 hash to preimage map
     pub hash256_preimages: BTreeMap<sha256d::Hash, Vec<u8>>,
+    /// Proprietary key-value pairs for this input.
+    pub proprietary: BTreeMap<raw::ProprietaryKey, Vec<u8>>,
     /// Unknown key-value pairs for this input.
     pub unknown: BTreeMap<raw::Key, Vec<u8>>,
 }
@@ -77,50 +102,54 @@ impl Map for Input {
         } = pair;
 
         match raw_key.type_value {
-            0u8 => {
+            PSBT_IN_NON_WITNESS_UTXO => {
                 impl_psbt_insert_pair! {
                     self.non_witness_utxo <= <raw_key: _>|<raw_value: Transaction>
                 }
             }
-            1u8 => {
+            PSBT_IN_WITNESS_UTXO => {
                 impl_psbt_insert_pair! {
                     self.witness_utxo <= <raw_key: _>|<raw_value: TxOut>
                 }
             }
-            3u8 => {
-                impl_psbt_insert_pair! {
-                    self.sighash_type <= <raw_key: _>|<raw_value: SigHashType>
-                }
-            }
-            4u8 => {
-                impl_psbt_insert_pair! {
-                    self.redeem_script <= <raw_key: _>|<raw_value: Script>
-                }
-            }
-            5u8 => {
-                impl_psbt_insert_pair! {
-                    self.witness_script <= <raw_key: _>|<raw_value: Script>
-                }
-            }
-            7u8 => {
-                impl_psbt_insert_pair! {
-                    self.final_script_sig <= <raw_key: _>|<raw_value: Script>
-                }
-            }
-            8u8 => {
-                impl_psbt_insert_pair! {
-                    self.final_script_witness <= <raw_key: _>|<raw_value: Vec<Vec<u8>>>
-                }
-            }
-            2u8 => {
+            PSBT_IN_PARTIAL_SIG => {
                 impl_psbt_insert_pair! {
                     self.partial_sigs <= <raw_key: PublicKey>|<raw_value: Vec<u8>>
                 }
             }
-            6u8 => {
+            PSBT_IN_SIGHASH_TYPE => {
                 impl_psbt_insert_pair! {
-                    self.hd_keypaths <= <raw_key: PublicKey>|<raw_value: KeySource>
+                    self.sighash_type <= <raw_key: _>|<raw_value: SigHashType>
                 }
+            }
+            PSBT_IN_REDEEM_SCRIPT => {
+                impl_psbt_insert_pair! {
+                    self.redeem_script <= <raw_key: _>|<raw_value: Script>
+                }
+            }
+            PSBT_IN_WITNESS_SCRIPT => {
+                impl_psbt_insert_pair! {
+                    self.witness_script <= <raw_key: _>|<raw_value: Script>
+                }
+            }
+            PSBT_IN_BIP32_DERIVATION => {
+                impl_psbt_insert_pair! {
+                    self.bip32_derivation <= <raw_key: PublicKey>|<raw_value: KeySource>
+                }
+            }
+            PSBT_IN_FINAL_SCRIPTSIG => {
+                impl_psbt_insert_pair! {
+                    self.final_script_sig <= <raw_key: _>|<raw_value: Script>
+                }
+            }
+            PSBT_IN_FINAL_SCRIPTWITNESS => {
+                impl_psbt_insert_pair! {
+                    self.final_script_witness <= <raw_key: _>|<raw_value: Vec<Vec<u8>>>
+                }
+            }
+            PSBT_IN_PROPRIETARY => match self.proprietary.entry(raw::ProprietaryKey::from_key(raw_key.clone())?) {
+                ::std::collections::btree_map::Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
+                ::std::collections::btree_map::Entry::Occupied(_) => return Err(Error::DuplicateKey(raw_key).into()),
             }
             10u8 => {
                 impl_psbt_insert_hash_pair! {
@@ -159,39 +188,39 @@ impl Map for Input {
         let mut rv: Vec<raw::Pair> = Default::default();
 
         impl_psbt_get_pair! {
-            rv.push(self.non_witness_utxo as <0u8, _>|<Transaction>)
+            rv.push(self.non_witness_utxo as <PSBT_IN_NON_WITNESS_UTXO, _>|<Transaction>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.witness_utxo as <1u8, _>|<TxOut>)
+            rv.push(self.witness_utxo as <PSBT_IN_WITNESS_UTXO, _>|<TxOut>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.partial_sigs as <2u8, PublicKey>|<Vec<u8>>)
+            rv.push(self.partial_sigs as <PSBT_IN_PARTIAL_SIG, PublicKey>|<Vec<u8>>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.sighash_type as <3u8, _>|<SigHashType>)
+            rv.push(self.sighash_type as <PSBT_IN_SIGHASH_TYPE, _>|<SigHashType>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.redeem_script as <4u8, _>|<Script>)
+            rv.push(self.redeem_script as <PSBT_IN_REDEEM_SCRIPT, _>|<Script>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.witness_script as <5u8, _>|<Script>)
+            rv.push(self.witness_script as <PSBT_IN_WITNESS_SCRIPT, _>|<Script>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.hd_keypaths as <6u8, PublicKey>|<KeySource>)
+            rv.push(self.bip32_derivation as <PSBT_IN_BIP32_DERIVATION, PublicKey>|<(Fingerprint, DerivationPath)>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.final_script_sig as <7u8, _>|<Script>)
+            rv.push(self.final_script_sig as <PSBT_IN_FINAL_SCRIPTSIG, _>|<Script>)
         }
 
         impl_psbt_get_pair! {
-            rv.push(self.final_script_witness as <8u8, _>|<Script>)
+            rv.push(self.final_script_witness as <PSBT_IN_FINAL_SCRIPTWITNESS, _>|<Script>)
         }
 
         impl_psbt_get_pair! {
@@ -208,6 +237,13 @@ impl Map for Input {
 
         impl_psbt_get_pair! {
             rv.push(self.hash256_preimages as <13u8, sha256d::Hash>|<Vec<u8>>)
+        }
+
+        for (key, value) in self.proprietary.iter() {
+            rv.push(raw::Pair {
+                key: key.to_key(),
+                value: value.clone(),
+            });
         }
 
         for (key, value) in self.unknown.iter() {
@@ -229,11 +265,12 @@ impl Map for Input {
         }
 
         self.partial_sigs.extend(other.partial_sigs);
-        self.hd_keypaths.extend(other.hd_keypaths);
+        self.bip32_derivation.extend(other.bip32_derivation);
         self.ripemd_preimages.extend(other.ripemd_preimages);
         self.sha256_preimages.extend(other.sha256_preimages);
         self.hash160_preimages.extend(other.hash160_preimages);
         self.hash256_preimages.extend(other.hash256_preimages);
+        self.proprietary.extend(other.proprietary);
         self.unknown.extend(other.unknown);
 
         merge!(redeem_script, self, other);

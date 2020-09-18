@@ -102,6 +102,18 @@ macro_rules! impl_psbtmap_consensus_enc_dec_oding {
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 macro_rules! impl_psbt_insert_pair {
+    ($unkeyed_name:ident <= <$raw_key:ident: _>|<$raw_value:ident: $unkeyed_value_type:ty>) => {
+        if $raw_key.key.is_empty() {
+            if $unkeyed_name.is_none() {
+                let val: $unkeyed_value_type = $crate::util::psbt::serialize::Deserialize::deserialize(&$raw_value)?;
+                $unkeyed_name = Some(val)
+            } else {
+                return Err($crate::util::psbt::Error::DuplicateKey($raw_key).into());
+            }
+        } else {
+            return Err($crate::util::psbt::Error::InvalidKey($raw_key).into());
+        }
+    };
     ($slf:ident.$unkeyed_name:ident <= <$raw_key:ident: _>|<$raw_value:ident: $unkeyed_value_type:ty>) => {
         if $raw_key.key.is_empty() {
             if $slf.$unkeyed_name.is_none() {
