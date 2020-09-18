@@ -19,7 +19,6 @@ use blockdata::script::Script;
 use consensus::encode;
 use util::bip32::KeySource;
 use util::key::PublicKey;
-use util::psbt;
 use util::psbt::map::Map;
 use util::psbt::raw;
 use util::psbt::Error;
@@ -116,17 +115,6 @@ impl Map for Output {
         }
 
         Ok(rv)
-    }
-
-    fn merge(&mut self, other: Self) -> Result<(), psbt::Error> {
-        self.bip32_derivation.extend(other.bip32_derivation);
-        self.proprietary.extend(other.proprietary);
-        self.unknown.extend(other.unknown);
-
-        merge!(redeem_script, self, other);
-        merge!(witness_script, self, other);
-
-        Ok(())
     }
 }
 

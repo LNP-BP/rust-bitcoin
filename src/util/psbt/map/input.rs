@@ -20,7 +20,6 @@ use consensus::encode;
 use hashes::{Hash, hash160, ripemd160, sha256, sha256d};
 use util::bip32::KeySource;
 use util::key::PublicKey;
-use util::psbt;
 use util::psbt::map::Map;
 use util::psbt::raw;
 use util::psbt::Error;
@@ -254,31 +253,6 @@ impl Map for Input {
         }
 
         Ok(rv)
-    }
-
-    fn merge(&mut self, other: Self) -> Result<(), psbt::Error> {
-        merge!(non_witness_utxo, self, other);
-
-        if let (&None, Some(witness_utxo)) = (&self.witness_utxo, other.witness_utxo) {
-            self.witness_utxo = Some(witness_utxo);
-            self.non_witness_utxo = None; // Clear out any non-witness UTXO when we set a witness one
-        }
-
-        self.partial_sigs.extend(other.partial_sigs);
-        self.bip32_derivation.extend(other.bip32_derivation);
-        self.ripemd_preimages.extend(other.ripemd_preimages);
-        self.sha256_preimages.extend(other.sha256_preimages);
-        self.hash160_preimages.extend(other.hash160_preimages);
-        self.hash256_preimages.extend(other.hash256_preimages);
-        self.proprietary.extend(other.proprietary);
-        self.unknown.extend(other.unknown);
-
-        merge!(redeem_script, self, other);
-        merge!(witness_script, self, other);
-        merge!(final_script_sig, self, other);
-        merge!(final_script_witness, self, other);
-
-        Ok(())
     }
 }
 

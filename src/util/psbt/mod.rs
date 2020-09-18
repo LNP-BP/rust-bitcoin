@@ -18,11 +18,11 @@
 //! defined at https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki
 //! except we define PSBTs containing non-standard SigHash types as invalid.
 
-use blockdata::transaction::{SigHashType, Transaction};
+use blockdata::transaction::SigHashType;
 use hash_types::SigHash;
 use consensus::{encode, Encodable, Decodable};
 use util::bip143::SigHashCache;
-use blockdata::script::{Builder, Script};
+use blockdata::script::Builder;
 use blockdata::opcodes;
 
 use std::io;
@@ -36,6 +36,7 @@ pub mod raw;
 mod macros;
 
 pub mod serialize;
+pub mod roles;
 
 mod map;
 pub use self::map::{Map, Global, Input, Output};
@@ -54,44 +55,6 @@ pub struct PartiallySignedTransaction {
 }
 
 impl PartiallySignedTransaction {
-    /// Create a PartiallySignedTransaction from an unsigned transaction, error
-    /// if not unsigned
-    pub fn from_unsigned_tx(tx: Transaction) -> Result<Self, self::Error> {
-        Ok(PartiallySignedTransaction {
-            inputs: vec![Default::default(); tx.input.len()],
-            outputs: vec![Default::default(); tx.output.len()],
-            global: Global::from_unsigned_tx(tx)?,
-        })
-    }
-
-    /// Extract the Transaction from a PartiallySignedTransaction by filling in
-    /// the available signature information in place.
-    pub fn extract_tx(self) -> Transaction {
-        let mut tx: Transaction = self.global.unsigned_tx;
-
-        for (vin, psbtin) in tx.input.iter_mut().zip(self.inputs.into_iter()) {
-            vin.script_sig = psbtin.final_script_sig.unwrap_or_else(Script::new);
-            vin.witness = psbtin.final_script_witness.unwrap_or_else(Vec::new);
-        }
-
-        tx
-    }
-
-    /// Attempt to merge with another `PartiallySignedTransaction`.
-    pub fn merge(&mut self, other: Self) -> Result<(), self::Error> {
-        self.global.merge(other.global)?;
-
-        for (self_input, other_input) in self.inputs.iter_mut().zip(other.inputs.into_iter()) {
-            self_input.merge(other_input)?;
-        }
-
-        for (self_output, other_output) in self.outputs.iter_mut().zip(other.outputs.into_iter()) {
-            self_output.merge(other_output)?;
-        }
-
-        Ok(())
-    }
-
     /// Calculate the Sighash for the Psbt Input at idx depending on whether input spends
     /// spends a segwit or not
     /// #Panics:
