@@ -1144,6 +1144,8 @@ mod tests {
         assert_eq!(DerivationPath::from_str("m/0h/0x"), Err(Error::InvalidChildNumberFormat));
         assert_eq!(DerivationPath::from_str("m/2147483648"), Err(Error::InvalidChildNumber(2147483648)));
 
+        assert_eq!(DerivationPath::master(), DerivationPath::from_str("m").unwrap());
+        assert_eq!(DerivationPath::master(), DerivationPath::default());
         assert_eq!(DerivationPath::from_str("m"), Ok(vec![].into()));
         assert_eq!(
             DerivationPath::from_str("m/0'"),
