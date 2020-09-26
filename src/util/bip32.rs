@@ -376,11 +376,30 @@ impl serde::Serialize for ChildNumber {
     }
 }
 
+/// Trait that allows possibly failable conversion from a type into a
+/// derivation path
+pub trait IntoDerivationPath {
+    /// Convers a given type into a [`DerivationPath`] with possible error
+    fn into_derivation_path(self) -> Result<DerivationPath, Error>;
+}
+
 /// A BIP-32 derivation path.
 #[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub struct DerivationPath(Vec<ChildNumber>);
 impl_index_newtype!(DerivationPath, ChildNumber);
 serde_string_impl!(DerivationPath, "a BIP-32 derivation path");
+
+impl Default for DerivationPath {
+    fn default() -> DerivationPath {
+        DerivationPath::master()
+    }
+}
+
+impl<T> IntoDerivationPath for T where T: Into<DerivationPath> {
+    fn into_derivation_path(self) -> Result<DerivationPath, Error> {
+        Ok(self.into())
+    }
+}
 
 impl From<Vec<ChildNumber>> for DerivationPath {
     fn from(numbers: Vec<ChildNumber>) -> Self {
@@ -465,6 +484,11 @@ impl<'a> Iterator for DerivationPathIterator<'a> {
 }
 
 impl DerivationPath {
+    /// Returns derivation path for a master key (i.e. empty derivation path)
+    pub fn master() -> DerivationPath {
+        DerivationPath(vec![])
+    }
+
     /// Create a new [DerivationPath] that is a child of this one.
     pub fn child(&self, cn: ChildNumber) -> DerivationPath {
         let mut path = self.0.clone();
