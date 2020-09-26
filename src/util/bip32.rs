@@ -489,6 +489,12 @@ impl DerivationPath {
         DerivationPath(vec![])
     }
 
+    /// Returns whether derivation path represents master key (i.e. it's length
+    /// is empty). True for `m` path.
+    pub fn is_master(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Create a new [DerivationPath] that is a child of this one.
     pub fn child(&self, cn: ChildNumber) -> DerivationPath {
         let mut path = self.0.clone();
