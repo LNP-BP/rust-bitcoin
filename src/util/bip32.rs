@@ -209,6 +209,37 @@ pub enum KeyApplication {
     SegWitLegacyMultisig,
 }
 
+#[cfg(feature = "serde")]
+impl serde::Serialize for KeyApplication {
+    fn serialize<S>(&self, serializer: S) -> Result<<S as serde::Serializer>::Ok, S::Error>
+        where S: serde::Serializer
+    {
+        match self {
+            KeyApplication::Legacy => 0u8,
+            KeyApplication::SegWitLegacySinglesig => 1u8,
+            KeyApplication::SegWitLegacyMultisig => 2u8,
+            KeyApplication::SegWitV0Singlesig => 3u8,
+            KeyApplication::SegWitV0Miltisig => 4u8,
+        }.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for KeyApplication {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: serde::Deserializer<'de>
+    {
+        Ok(match u8::deserialize(deserializer)? {
+            0 => KeyApplication::Legacy,
+            1 => KeyApplication::SegWitLegacySinglesig,
+            2 => KeyApplication::SegWitLegacyMultisig,
+            3 => KeyApplication::SegWitV0Singlesig,
+            4 => KeyApplication::SegWitV0Miltisig,
+            _ => Err(serde::de::Error::custom("unknown variant code for `KeyApplication`"))?
+        })
+    }
+}
+
 /// Extended private key
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct ExtendedPrivKey<R: VersionResolver = DefaultResolver> {
