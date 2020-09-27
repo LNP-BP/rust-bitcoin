@@ -118,11 +118,11 @@ pub trait VersionResolver: Copy + Clone + PartialEq + Eq + PartialOrd + Ord + ::
 
     /// Type that defines possible applications fro public and private keys
     /// (types of scriptPubkey descriptors in which they can be used)
-    type Applications;
+    type Application;
 
     /// Constructor for [KeyVersion] with given network, application scope and
     /// key type (public or private)
-    fn resolve(network: Self::Network, applicable_for: Self::Applications, is_priv: bool) -> KeyVersion;
+    fn resolve(network: Self::Network, applicable_for: Self::Application, is_priv: bool) -> KeyVersion;
 
     /// Detects whether provided version corresponds to an extended public key.
     /// Returns `None` if the version is not recognized/unknown to the resolver.
@@ -140,7 +140,7 @@ pub trait VersionResolver: Copy + Clone + PartialEq + Eq + PartialOrd + Ord + ::
     /// Application scope is a types of scriptPubkey descriptors in which given
     /// extended public/private keys can be used.
     /// Returns `None` if the version is not recognized/unknown to the resolver.
-    fn applications(_: &KeyVersion) -> Option<Self::Applications> { return None }
+    fn application(_: &KeyVersion) -> Option<Self::Application> { return None }
 
     /// Returns BIP 32 derivation path for the provided key version.
     /// Returns `None` if the version is not recognized/unknown to the resolver.
@@ -172,7 +172,7 @@ impl KeyVersion {
     /// Application scope is a types of scriptPubkey descriptors in which given
     /// extended public/private keys can be used.
     /// Returns `None` if the version is not recognized/unknown to the resolver.
-    pub fn applications<R: VersionResolver>(&self) -> Option<R::Applications> { R::applications(&self) }
+    pub fn application<R: VersionResolver>(&self) -> Option<R::Application> { R::application(&self) }
 
     /// Returns BIP 32 derivation path for the provided key version.
     /// Returns `None` if the version is not recognized/unknown to the resolver.
@@ -195,7 +195,7 @@ pub struct DefaultResolver;
 /// SLIP 132-defined key applications defining types of scriptPubkey descriptors
 /// in which they can be used
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum KeyApplications {
+pub enum KeyApplication {
     /// xprv/xpub: keys that can be used for P2PKH and multisig P2SH scriptPubkey
     /// descriptors.
     Legacy,
@@ -665,30 +665,30 @@ impl KeyVersion {
 
 impl VersionResolver for DefaultResolver {
     type Network = Network;
-    type Applications = KeyApplications;
+    type Application = KeyApplication;
 
-    fn resolve(network: Self::Network, applicable_for: Self::Applications, is_priv: bool) -> KeyVersion {
+    fn resolve(network: Self::Network, applicable_for: Self::Application, is_priv: bool) -> KeyVersion {
         match (network, applicable_for, is_priv) {
-            (Network::Bitcoin, KeyApplications::Legacy, false) => KeyVersion(VERSION_MAGIC_XPUB),
-            (Network::Bitcoin, KeyApplications::Legacy, true) => KeyVersion(VERSION_MAGIC_XPRV),
-            (Network::Bitcoin, KeyApplications::SegWitLegacySinglesig, false) => KeyVersion(VERSION_MAGIC_YPUB),
-            (Network::Bitcoin, KeyApplications::SegWitLegacySinglesig, true) => KeyVersion(VERSION_MAGIC_YPRV),
-            (Network::Bitcoin, KeyApplications::SegWitV0Singlesig, false) => KeyVersion(VERSION_MAGIC_ZPUB),
-            (Network::Bitcoin, KeyApplications::SegWitV0Singlesig, true) => KeyVersion(VERSION_MAGIC_ZPRV),
-            (Network::Bitcoin, KeyApplications::SegWitLegacyMultisig, false) => KeyVersion(VERSION_MAGIC_YPUB_MULTISIG),
-            (Network::Bitcoin, KeyApplications::SegWitLegacyMultisig, true) => KeyVersion(VERSION_MAGIC_YPRV_MULTISIG),
-            (Network::Bitcoin, KeyApplications::SegWitV0Miltisig, false) => KeyVersion(VERSION_MAGIC_ZPUB_MULTISIG),
-            (Network::Bitcoin, KeyApplications::SegWitV0Miltisig, true) => KeyVersion(VERSION_MAGIC_ZPRV_MULTISIG),
-            (_, KeyApplications::Legacy, false) => KeyVersion(VERSION_MAGIC_TPUB),
-            (_, KeyApplications::Legacy, true) => KeyVersion(VERSION_MAGIC_TPRV),
-            (_, KeyApplications::SegWitLegacySinglesig, false) => KeyVersion(VERSION_MAGIC_UPUB),
-            (_, KeyApplications::SegWitLegacySinglesig, true) => KeyVersion(VERSION_MAGIC_UPRV),
-            (_, KeyApplications::SegWitV0Singlesig, false) => KeyVersion(VERSION_MAGIC_VPUB),
-            (_, KeyApplications::SegWitV0Singlesig, true) => KeyVersion(VERSION_MAGIC_VPRV),
-            (_, KeyApplications::SegWitLegacyMultisig, false) => KeyVersion(VERSION_MAGIC_UPUB_MULTISIG),
-            (_, KeyApplications::SegWitLegacyMultisig, true) => KeyVersion(VERSION_MAGIC_UPRV_MULTISIG),
-            (_, KeyApplications::SegWitV0Miltisig, false) => KeyVersion(VERSION_MAGIC_VPUB_MULTISIG),
-            (_, KeyApplications::SegWitV0Miltisig, true) => KeyVersion(VERSION_MAGIC_VPRV_MULTISIG),
+            (Network::Bitcoin, KeyApplication::Legacy, false) => KeyVersion(VERSION_MAGIC_XPUB),
+            (Network::Bitcoin, KeyApplication::Legacy, true) => KeyVersion(VERSION_MAGIC_XPRV),
+            (Network::Bitcoin, KeyApplication::SegWitLegacySinglesig, false) => KeyVersion(VERSION_MAGIC_YPUB),
+            (Network::Bitcoin, KeyApplication::SegWitLegacySinglesig, true) => KeyVersion(VERSION_MAGIC_YPRV),
+            (Network::Bitcoin, KeyApplication::SegWitV0Singlesig, false) => KeyVersion(VERSION_MAGIC_ZPUB),
+            (Network::Bitcoin, KeyApplication::SegWitV0Singlesig, true) => KeyVersion(VERSION_MAGIC_ZPRV),
+            (Network::Bitcoin, KeyApplication::SegWitLegacyMultisig, false) => KeyVersion(VERSION_MAGIC_YPUB_MULTISIG),
+            (Network::Bitcoin, KeyApplication::SegWitLegacyMultisig, true) => KeyVersion(VERSION_MAGIC_YPRV_MULTISIG),
+            (Network::Bitcoin, KeyApplication::SegWitV0Miltisig, false) => KeyVersion(VERSION_MAGIC_ZPUB_MULTISIG),
+            (Network::Bitcoin, KeyApplication::SegWitV0Miltisig, true) => KeyVersion(VERSION_MAGIC_ZPRV_MULTISIG),
+            (_, KeyApplication::Legacy, false) => KeyVersion(VERSION_MAGIC_TPUB),
+            (_, KeyApplication::Legacy, true) => KeyVersion(VERSION_MAGIC_TPRV),
+            (_, KeyApplication::SegWitLegacySinglesig, false) => KeyVersion(VERSION_MAGIC_UPUB),
+            (_, KeyApplication::SegWitLegacySinglesig, true) => KeyVersion(VERSION_MAGIC_UPRV),
+            (_, KeyApplication::SegWitV0Singlesig, false) => KeyVersion(VERSION_MAGIC_VPUB),
+            (_, KeyApplication::SegWitV0Singlesig, true) => KeyVersion(VERSION_MAGIC_VPRV),
+            (_, KeyApplication::SegWitLegacyMultisig, false) => KeyVersion(VERSION_MAGIC_UPUB_MULTISIG),
+            (_, KeyApplication::SegWitLegacyMultisig, true) => KeyVersion(VERSION_MAGIC_UPRV_MULTISIG),
+            (_, KeyApplication::SegWitV0Miltisig, false) => KeyVersion(VERSION_MAGIC_VPUB_MULTISIG),
+            (_, KeyApplication::SegWitV0Miltisig, true) => KeyVersion(VERSION_MAGIC_VPRV_MULTISIG),
         }
     }
 
@@ -748,28 +748,28 @@ impl VersionResolver for DefaultResolver {
         }
     }
 
-    fn applications(kv: &KeyVersion) -> Option<Self::Applications> {
+    fn application(kv: &KeyVersion) -> Option<Self::Application> {
         match kv.as_bytes() {
             &VERSION_MAGIC_XPUB
             | &VERSION_MAGIC_XPRV
             | &VERSION_MAGIC_TPUB
-            | &VERSION_MAGIC_TPRV => Some(KeyApplications::Legacy),
+            | &VERSION_MAGIC_TPRV => Some(KeyApplication::Legacy),
             &VERSION_MAGIC_YPUB
             | &VERSION_MAGIC_YPRV
             | &VERSION_MAGIC_UPUB
-            | &VERSION_MAGIC_UPRV => Some(KeyApplications::SegWitLegacySinglesig),
+            | &VERSION_MAGIC_UPRV => Some(KeyApplication::SegWitLegacySinglesig),
             &VERSION_MAGIC_YPUB_MULTISIG
             | &VERSION_MAGIC_YPRV_MULTISIG
             | &VERSION_MAGIC_UPUB_MULTISIG
-            | &VERSION_MAGIC_UPRV_MULTISIG => Some(KeyApplications::SegWitLegacyMultisig),
+            | &VERSION_MAGIC_UPRV_MULTISIG => Some(KeyApplication::SegWitLegacyMultisig),
             &VERSION_MAGIC_ZPUB
             | &VERSION_MAGIC_ZPRV
             | &VERSION_MAGIC_VPUB
-            | &VERSION_MAGIC_VPRV => Some(KeyApplications::SegWitV0Singlesig),
+            | &VERSION_MAGIC_VPRV => Some(KeyApplication::SegWitV0Singlesig),
             &VERSION_MAGIC_ZPUB_MULTISIG
             | &VERSION_MAGIC_ZPRV_MULTISIG
             | &VERSION_MAGIC_VPUB_MULTISIG
-            | &VERSION_MAGIC_VPRV_MULTISIG => Some(KeyApplications::SegWitV0Miltisig),
+            | &VERSION_MAGIC_VPRV_MULTISIG => Some(KeyApplication::SegWitV0Miltisig),
             _ => None,
         }
     }
@@ -1233,7 +1233,7 @@ mod tests {
                  expected_sk: &str,
                  expected_pk: &str) {
 
-        let mut sk = ExtendedPrivKey::<DefaultResolver>::new_master(DefaultResolver::resolve(network, KeyApplications::Legacy, true), seed).unwrap();
+        let mut sk = ExtendedPrivKey::<DefaultResolver>::new_master(DefaultResolver::resolve(network, KeyApplication::Legacy, true), seed).unwrap();
         let mut pk = ExtendedPubKey::from_private(secp, &sk).unwrap();
 
         // Check derivation convenience method for ExtendedPrivKey
