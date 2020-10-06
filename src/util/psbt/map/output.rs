@@ -15,6 +15,7 @@
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 
+use hashes::sha256;
 use blockdata::script::Script;
 use consensus::encode;
 use util::bip32::KeySource;
@@ -29,6 +30,9 @@ const PSBT_OUT_REDEEM_SCRIPT: u8 = 0x00;
 const PSBT_OUT_WITNESS_SCRIPT: u8 = 0x01;
 /// Type: BIP 32 Derivation Path PSBT_OUT_BIP32_DERIVATION = 0x02
 const PSBT_OUT_BIP32_DERIVATION: u8 = 0x02;
+// This will be a part of the BIP32
+/// Type: BIP 32 Derivation Path PSBT_OUT_TWEAK = 0x03
+const PSBT_OUT_TWEAK: u8 = 0x03;
 /// Type: Proprietary Use Type PSBT_IN_PROPRIETARY = 0xFC
 const PSBT_OUT_PROPRIETARY: u8 = 0xFC;
 
@@ -43,6 +47,8 @@ pub struct Output {
     /// A map from public keys needed to spend this output to their
     /// corresponding master key fingerprints and derivation paths.
     pub bip32_derivation: BTreeMap<PublicKey, KeySource>,
+    /// Public key "pay-to-contract" tweaking information
+    pub tweak: BTreeMap<PublicKey, sha256::Hash>,
     /// Proprietary key-value pairs for this output.
     pub proprietary: BTreeMap<raw::ProprietaryKey, Vec<u8>>,
     /// Unknown key-value pairs for this output.
@@ -72,6 +78,11 @@ impl Map for Output {
                     self.bip32_derivation <= <raw_key: PublicKey>|<raw_value: KeySource>
                 }
             }
+            PSBT_OUT_TWEAK => {
+                impl_psbt_insert_pair! {
+                    self.tweak <= <raw_key: PublicKey>|<raw_value: sha256::Hash>
+                }
+            }
             PSBT_OUT_PROPRIETARY => match self.proprietary.entry(raw::ProprietaryKey::from_key(raw_key.clone())?) {
                 Entry::Vacant(empty_key) => {empty_key.insert(raw_value);},
                 Entry::Occupied(_) => return Err(Error::DuplicateKey(raw_key.clone()).into()),
@@ -98,6 +109,10 @@ impl Map for Output {
 
         impl_psbt_get_pair! {
             rv.push(self.bip32_derivation as <PSBT_OUT_BIP32_DERIVATION, PublicKey>|<(Fingerprint, DerivationPath)>)
+        }
+
+        impl_psbt_get_pair! {
+            rv.push(self.tweak as <PSBT_OUT_TWEAK, PublicKey>|<sha256::Hash>)
         }
 
         for (key, value) in self.proprietary.iter() {
