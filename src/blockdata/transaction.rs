@@ -592,6 +592,37 @@ pub enum SigHashType {
     /// 0x83: Sign one output and only this input (see `Single` for what "one output" means)
     SinglePlusAnyoneCanPay	= 0x83
 }
+serde_string_impl!(SigHashType, "a SigHashType data");
+
+impl fmt::Display for SigHashType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            SigHashType::All => "SIGHASH_ALL",
+            SigHashType::None => "SIGHASH_NONE",
+            SigHashType::Single => "SIGHASH_SIGNLE",
+            SigHashType::AllPlusAnyoneCanPay => "SIGHASH_ALL | SIGHASH_ANYONECANPAY",
+            SigHashType::NonePlusAnyoneCanPay => "SIGHASH_NONE | SIGHASH_ANYONECANPAY",
+            SigHashType::SinglePlusAnyoneCanPay => "SIGHASH_SIGNLE | SIGHASH_ANYONECANPAY",
+        };
+        f.write_str(s)
+    }
+}
+
+impl std::str::FromStr for SigHashType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.replace(' ', "").to_ascii_uppercase().as_ref() {
+            "SIGHASH_ALL" => Ok(SigHashType::All),
+            "SIGHASH_NONE" => Ok(SigHashType::None),
+            "SIGHASH_SIGNLE" => Ok(SigHashType::Single),
+            "SIGHASH_ALL|SIGHASH_ANYONECANPAY" => Ok(SigHashType::AllPlusAnyoneCanPay),
+            "SIGHASH_NONE|SIGHASH_ANYONECANPAY" => Ok(SigHashType::NonePlusAnyoneCanPay),
+            "SIGHASH_SIGNLE|SIGHASH_ANYONECANPAY" => Ok(SigHashType::SinglePlusAnyoneCanPay),
+            _ => Err("can't recognize SIGHASH string".to_string())
+        }
+    }
+}
 
 impl SigHashType {
      /// Break the sighash flag into the "real" sighash flag and the ANYONECANPAY boolean
