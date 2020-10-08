@@ -14,7 +14,7 @@
 
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
-use std::io::{self, Cursor};
+use std::io::{self, Cursor, Read};
 
 use blockdata::transaction::Transaction;
 use consensus::{encode, Encodable, Decodable};
@@ -22,7 +22,7 @@ use util::psbt::map::Map;
 use util::psbt::raw;
 use util::psbt;
 use util::psbt::Error;
-use util::bip32::{Fingerprint, DerivationPath, ExtendedPubKey};
+use util::bip32::{ExtendedPubKey, KeySource, Fingerprint, DerivationPath, ChildNumber};
 
 /// Type: Unsigned Transaction PSBT_GLOBAL_UNSIGNED_TX = 0x00
 const PSBT_GLOBAL_UNSIGNED_TX: u8 = 0x00;
@@ -41,7 +41,7 @@ pub struct Global {
     pub unsigned_tx: Transaction,
     /// A global map frpm extended public keys to the used key fingerprint and
     /// derivation path as defined by BIP 32
-    pub xpub: BTreeMap<ExtendedPubKey, (Fingerprint, DerivationPath)>,
+    pub xpub: BTreeMap<ExtendedPubKey, KeySource>,
     /// The version number of this PSBT. If ommitted, the version number is 0.
     pub version: u32,
     /// Global proprietary key-value pairs.
@@ -154,8 +154,10 @@ impl Decodable for Global {
     fn consensus_decode<D: io::Read>(mut d: D) -> Result<Self, encode::Error> {
 
         let mut tx: Option<Transaction> = None;
+        let mut version: Option<u32> = None;
         let mut unknowns: BTreeMap<raw::Key, Vec<u8>> = Default::default();
         let mut proprietary: BTreeMap<raw::ProprietaryKey, Vec<u8>> = Default::default();
+        let mut xpub_map: BTreeMap<ExtendedPubKey, (Fingerprint, DerivationPath)> = Default::default();
 
         loop {
             match raw::Pair::consensus_decode(&mut d) {
@@ -189,6 +191,58 @@ impl Decodable for Global {
                                 return Err(Error::InvalidKey(pair.key).into())
                             }
                         }
+                        PSBT_GLOBAL_VERSION => {
+                            // key has to be empty
+                            if pair.key.key.is_empty() {
+                                // there can only be one version
+                                if version.is_none() {
+                                    let vlen: usize = pair.value.len();
+                                    let mut decoder = Cursor::new(pair.value);
+                                    if vlen != 4 {
+                                        return Err(encode::Error::ParseFailed("Wrong global version value length (must be 4 bytes)"))
+                                    }
+                                    version = Some(Decodable::consensus_decode(&mut decoder)?);
+                                    if decoder.position() != vlen as u64 {
+                                        return Err(encode::Error::ParseFailed("data not consumed entirely when explicitly deserializing"))
+                                    }
+                                } else {
+                                    return Err(Error::DuplicateKey(pair.key).into())
+                                }
+                            } else {
+                                return Err(Error::InvalidKey(pair.key).into())
+                            }
+                        }
+                        PSBT_GLOBAL_XPUB => {
+                            if !pair.key.key.is_empty() {
+                                let xpub = ExtendedPubKey::decode(&pair.key.key)
+                                    .map_err(|_| {
+                                        encode::Error::ParseFailed("Can't deserialize ExtendedPublicKey from global XPUB key data")
+                                    })?;
+                                let vlen: usize = pair.value.len();
+                                let mut decoder = Cursor::new(pair.value);
+                                let mut fingerprint = [0u8; 4];
+                                decoder.read_exact(&mut fingerprint[..])?;
+                                let mut path: Vec<ChildNumber> = Default::default();
+                                loop {
+                                    match u32::consensus_decode(&mut decoder) {
+                                        Ok(index) => {
+                                            path.push(ChildNumber::from(index))
+                                        }
+                                        Err(_) => break
+                                    }
+                                }
+                                let derivation = DerivationPath::from(path);
+                                if decoder.position() != vlen as u64 {
+                                    return Err(encode::Error::ParseFailed("data not consumed entirely when explicitly deserializing"))
+                                }
+                                // Keys, according to BIP-174, must be unique
+                                if xpub_map.insert(xpub, (Fingerprint::from(&fingerprint[..]), derivation)).is_some() {
+                                    return Err(encode::Error::ParseFailed("Repeated global xpub key"))
+                                }
+                            } else {
+                                return Err(encode::Error::ParseFailed("Xpub global key must contain serialized Xpub data"))
+                            }
+                        }
                         PSBT_GLOBAL_PROPRIETARY => match proprietary.entry(raw::ProprietaryKey::from_key(pair.key.clone())?) {
                             Entry::Vacant(empty_key) => {empty_key.insert(pair.value);},
                             Entry::Occupied(_) => return Err(Error::DuplicateKey(pair.key).into()),
@@ -206,6 +260,9 @@ impl Decodable for Global {
 
         if let Some(tx) = tx {
             let mut rv: Global = Global::from_unsigned_tx(tx)?;
+            rv.version = version.unwrap_or(0);
+            rv.xpub = xpub_map;
+            rv.proprietary = proprietary;
             rv.unknown = unknowns;
             Ok(rv)
         } else {
