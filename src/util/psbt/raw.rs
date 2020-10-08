@@ -22,6 +22,7 @@ use std::{fmt, io};
 use consensus::encode::{self, ReadExt, WriteExt, Decodable, Encodable, VarInt, serialize, deserialize, MAX_VEC_SIZE};
 use hashes::hex::ToHex;
 use util::psbt::Error;
+use serde::{Serializer, Deserializer};
 
 /// A PSBT key in its raw byte form.
 #[derive(Debug, PartialEq, Hash, Eq, Clone, Ord, PartialOrd)]
@@ -31,6 +32,7 @@ pub struct Key {
     /// The key itself in raw byte form.
     pub key: Vec<u8>,
 }
+serde_struct_impl!(Key, type_value, key);
 
 /// A PSBT key-value pair in its raw byte form.
 #[derive(Debug, PartialEq)]
@@ -40,10 +42,27 @@ pub struct Pair {
     /// The value of this key-value pair in raw byte form.
     pub value: Vec<u8>,
 }
+serde_struct_impl!(Pair, key, value);
 
 /// Default implementation for proprietary key subtyping
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct ProprietaryType;
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for ProprietaryType {
+    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error> where
+        S: Serializer {
+        serializer.serialize_bytes(&[])
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for ProprietaryType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error> where
+        D: Deserializer<'de> {
+        Ok(ProprietaryType)
+    }
+}
 
 /// Proprietary keys (i.e. keys starting with 0xFC byte) with their internal
 /// structure according to BIP 174.
@@ -57,6 +76,7 @@ pub struct ProprietaryKey<Subtype = ProprietaryType> where Subtype: Copy + From<
     /// Additional key bytes (like serialized public key data etc)
     pub key: Vec<u8>,
 }
+serde_struct_impl!(ProprietaryKey, prefix, subtype, key);
 
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

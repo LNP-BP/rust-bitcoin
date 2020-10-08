@@ -53,6 +53,7 @@ pub struct PartiallySignedTransaction {
     /// transaction.
     pub outputs: Vec<Output>,
 }
+serde_struct_impl!(PartiallySignedTransaction, global, inputs, outputs);
 
 impl PartiallySignedTransaction {
     /// Calculate the Sighash for the Psbt Input at idx depending on whether input spends
