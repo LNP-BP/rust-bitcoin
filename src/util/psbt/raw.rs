@@ -22,7 +22,6 @@ use std::{fmt, io};
 use consensus::encode::{self, ReadExt, WriteExt, Decodable, Encodable, VarInt, serialize, deserialize, MAX_VEC_SIZE};
 use hashes::hex::ToHex;
 use util::psbt::Error;
-use serde::{Serializer, Deserializer};
 
 /// A PSBT key in its raw byte form.
 #[derive(Debug, PartialEq, Hash, Eq, Clone, Ord, PartialOrd)]
@@ -44,30 +43,10 @@ pub struct Pair {
 }
 serde_struct_impl!(Pair, key, value);
 
-/// Default implementation for proprietary key subtyping
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct ProprietaryType;
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for ProprietaryType {
-    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error> where
-        S: Serializer {
-        serializer.serialize_bytes(&[])
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for ProprietaryType {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error> where
-        D: Deserializer<'de> {
-        Ok(ProprietaryType)
-    }
-}
-
 /// Proprietary keys (i.e. keys starting with 0xFC byte) with their internal
 /// structure according to BIP 174.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct ProprietaryKey<Subtype = ProprietaryType> where Subtype: Copy + From<u8> + Into<u8> {
+pub struct ProprietaryKey<Subtype = u8> where Subtype: Copy + From<u8> + Into<u8> {
     /// Proprietary type prefix used for grouping together keys under some
     /// application and avoid namespace collision
     pub prefix: Vec<u8>,
@@ -154,18 +133,6 @@ impl Decodable for Pair {
             key: Decodable::consensus_decode(&mut d)?,
             value: Decodable::consensus_decode(d)?,
         })
-    }
-}
-
-impl From<u8> for ProprietaryType {
-    fn from(_: u8) -> Self {
-        ProprietaryType
-    }
-}
-
-impl Into<u8> for ProprietaryType {
-    fn into(self) -> u8 {
-        0u8
     }
 }
 
