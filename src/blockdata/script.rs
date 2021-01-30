@@ -368,7 +368,7 @@ impl Script {
         self.0.len() >= 4
             && self.0.len() <= 42
             // Version 0 or PUSHNUM_1-PUSHNUM_16
-            && (self.0[0] == 0 || self.0[0] >= min_vernum && self.0[0] <= max_vernum)
+            && (self.0[0] == 0 || (self.0[0] >= min_vernum && self.0[0] <= max_vernum))
             // Second byte push opcode 2-40 bytes
             && self.0[1] >= opcodes::all::OP_PUSHBYTES_2.into_u8()
             && self.0[1] <= opcodes::all::OP_PUSHBYTES_40.into_u8()
