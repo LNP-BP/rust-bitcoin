@@ -121,6 +121,21 @@ grammar fixes.
 
 ### Formatting
 
+We plan to utilize `rustfmt` for keeping the code formatting consistent. 
+However, this will be a gradual process since a thorough peer review is required
+to make sure that no unintended changes are introduced with the change of 
+formatting. Thus, all PRs introducing large blocks of re-formatted code will not
+be reviewed.
+
+The current plan is to phase it in over multiple commits or even multiple PRs,
+which will introduce no other changes that re-formatting, such that each change 
+may be independently re-reproduced by each reviewer. The first commit should add
+attributes to disable fmt for some parts of the code and a second one does the 
+formatting – so only the first one needs review, the rest will be reproducible.
+
+You may check the [discussion on the formatting](https://github.com/rust-bitcoin/rust-bitcoin/issues/172)
+and [how it is planned to coordinate it with crate refactoring](https://github.com/rust-bitcoin/rust-bitcoin/pull/525)
+
 <!--
 Rust-fmt should be used as a coding style recommendations in general, with a
 default coding style. By default, Rustfmt uses a style which conforms to the
