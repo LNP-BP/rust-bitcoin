@@ -16,6 +16,7 @@ changes to this document in a pull request.
 - [Contribution workflow](#contribution-workflow)
 - [Branches information](#branches-information)
 - [Peer review](#peer-review)
+  * [Repository maintainers](#repository-maintainers)
 - [Coding conventions](#coding-conventions)
   * [Formatting](#formatting)
   * [Derivation](#derivation)
@@ -115,6 +116,38 @@ request. Typically reviewers will review the code for obvious errors, as well as
 test out the patch set and opine on the technical merits of the patch. PR should
 be reviewed first on the conceptual level before focusing on code style or
 grammar fixes.
+
+### Repository maintainers
+
+For the pull request to be merged we require (a) that all CI test should pass 
+and (2) at least two "accepts"/ACKs from the repository maintainers – and no 
+main reasonable "rejects"/NACKs from anybody who reviewed the code.
+
+Current list of the project maintainers:
+
+- [Andrew Poelstra](https://github.com/apoelstra)
+- [Steven Roose](https://github.com/stevenroose)
+- [Maxim Orlovsky](https://github.com/dr-orlovsky)
+- [Matt Corallo](https://github.com/TheBlueMatt)
+- [Elichai Turkel](https://github.com/elichai)
+- [Sebastian Geisler](https://github.com/sgeisler)
+- [Sanket Kanjalkar](https://github.com/sanket1729)
+
+Anyone may become a prepository maintaner by:
+- Demonstrating long-term commitment to the project development (multiple 
+  accepted PRs and code review of other's PRs over prolonged period of time, 
+  proven by the rank in 
+  [GitHub project contributors list](https://github.com/rust-bitcoin/rust-bitcoin/graphs/contributors))
+- Contributing code and reviews at high quality, passing peer-review of the
+  existing maintainers and other participants.
+- Willing to perform peer review and participate in closing issues on the 
+  regular basis in the future.
+
+On the other hand, those, who had stopped participating in the project 
+development on the ongoing basis may be, after some "grace period", be removed
+from the project maintainers, if there are other candidates who can replace them
+(such that "2 positive reviews from maintainers" requirement will remain 
+achievable).
 
 
 ## Coding conventions
