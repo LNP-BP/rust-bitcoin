@@ -20,6 +20,7 @@ changes to this document in a pull request.
   * [Formatting](#formatting)
   * [Derivation](#derivation)
   * [MSRV](#msrv)
+  * [Naming conventions](#naming-conventions)
 - [Security](#security)
 - [Testing](#testing)
 - [Going further](#going-further)
@@ -199,6 +200,14 @@ The discussion about trait derivation can be read at
 The Minimal Supported Rust Version (MSRV) is 0.29; it is enforced by our CI. 
 Later we plan to increase MSRV to support Rust 2018 and you are welcome to check
 the [tracking issue](https://github.com/rust-bitcoin/rust-bitcoin/issues/510).
+
+### Naming conventions
+
+Naming of data structures/enums and their fields/variants must follow names used
+in Bitcoin Core, with except to:
+- case, which should follow Rust standards (i.e. PascalCase for types and 
+  snake_case for fields and variants)
+- `C`-prefix, which should be omitted
 
 
 ## Security
