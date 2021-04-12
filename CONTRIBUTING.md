@@ -17,6 +17,9 @@ changes to this document in a pull request.
 - [Branches information](#branches-information)
 - [Peer review](#peer-review)
 - [Coding conventions](#coding-conventions)
+  * [Formatting](#formatting)
+  * [Derivation](#derivation)
+  * [MSRV](#msrv)
 - [Security](#security)
 - [Testing](#testing)
 - [Going further](#going-further)
@@ -81,10 +84,6 @@ Every new features should be covered by unit tests.
 When refactoring, structure your PR to make it easy to review and don't hesitate
 to split it into multiple small, focused PRs.
 
-The Minimal Supported Rust Version is 0.29; it is enforced by our CI. Later we 
-plan to fix to increase MSRV to support Rust 2018 and you are welcome to check
-the [tracking issue](https://github.com/rust-bitcoin/rust-bitcoin/issues/510).
-
 Commits should cover both the issue fixed and the solution's rationale.
 These [guidelines](https://chris.beams.io/posts/git-commit/) should be kept in
 mind.
@@ -143,6 +142,63 @@ default coding style. By default, Rustfmt uses a style which conforms to the
 process][fmt rfcs]. It is also required to run `cargo fmt` to make the code
 formatted according to `rustfmt` parameters 
 -->
+
+### Derivation
+
+Derivations applied to a data structures should be standardized:
+
+1. All non-error types should opportunistically derive, where it is possible,
+   the following traits:
+   - `Copy`
+   - `Clone`
+   - `PartialEq` and `Eq`
+   - `PartialOrd` and `Ord`
+   - `Hash`
+   - `Debug`
+   
+   By "where possible" we mean that by default a code line
+   ```rust
+   #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+   ```
+   must be placed before each struct, and then those of these traits, which can't
+   be auto-derived because of the member field restrictions should be removed.
+
+2. `Default` derivation should be performed whenever there is a rationale to 
+   have default constructor initializing "empty" data structure, i.e. this 
+   empty structure has a real use in the business logic *outside of the scope
+   of testing or creating dumb data*. For instance, if the structure consists
+   only of collection types which may be empty it should derive `Default` trait.
+
+3. **Error types** (both structs and enums) must implement `Display` and `Error`
+   traits manually, and should provide `Error::source` function if some of the
+   error cases contain other error type.
+
+4. `Display` should be implemented for all data types which may be presented to
+   the end user (not developers!), for instance in command line or as a part of
+   GUI. Here are some guidelines: 
+   - Normally, `Display` implementation should not just repeat `Debug` and
+     structure the data in some visually-acceptable way. 
+   - One should pay attention to the ability of providing alternative ways of 
+     data formatting with `{:#}` formatting string option, detectable by 
+     `std::fmt::Formatter::alternate()` function. Other important options to
+     look at are `align`, `fill`, `pad`, `precision` and `width`. 
+   - When displaying the member fields it is important to consider the ability
+     to pass them display formatting options; thus, 
+     `Display::fmt(&self.field, f)?;` is preferable over 
+     `write!(f, "{}", self.field)?;`
+
+5. Serde serializers should be implemented for all data types which may persist
+   or may be presented in the UI or API as JSON/YAML and other kinds of data 
+   representations (in fact, these are all data types).
+
+The discussion about trait derivation can be read at 
+[the tracking issue](https://github.com/rust-bitcoin/rust-bitcoin/issues/555).
+
+### MSRV
+
+The Minimal Supported Rust Version (MSRV) is 0.29; it is enforced by our CI. 
+Later we plan to increase MSRV to support Rust 2018 and you are welcome to check
+the [tracking issue](https://github.com/rust-bitcoin/rust-bitcoin/issues/510).
 
 
 ## Security
