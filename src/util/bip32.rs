@@ -19,6 +19,7 @@
 use core::{fmt, str::FromStr, default::Default};
 use std::error;
 #[cfg(feature = "serde")] use serde;
+use std::io::Write;
 
 use hash_types::XpubIdentifier;
 use hashes::{sha512, Hash, HashEngine, Hmac, HmacEngine};
@@ -26,8 +27,7 @@ use secp256k1::{self, Secp256k1};
 
 use network::constants::Network;
 use util::{base58, endian};
-use util::key;
-use std::io::Write;
+use util::{key, ecdsa, schnorr};
 
 /// A chain code
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -504,6 +504,21 @@ impl ExtendedPrivKey {
         })
     }
 
+    /// Constructs ECDSA compressed private key matching internal secret key representation.
+    pub fn to_ecdsa(&self) -> ecdsa::PrivateKey {
+        ecdsa::PrivateKey {
+            compressed: true,
+            network: self.network,
+            key: self.private_key
+        }
+    }
+
+    /// Constructs BIP340 keypair for Schnorr signatures and Taproot use matching the internal
+    /// secret key representation.
+    pub fn to_schnorr<C: secp256k1::Signing>(&self, secp: &Secp256k1<C>) -> schnorr::KeyPair {
+        schnorr::KeyPair::from_seckey_slice(secp, &self.private_key[..]).expect("BIP32 internal private key representation is broken")
+    }
+
     /// Attempts to derive an extended private key from a path.
     ///
     /// The `path` argument can be both of type `DerivationPath` or `Vec<ChildNumber>`.
@@ -613,6 +628,20 @@ impl ExtendedPubKey {
             public_key: secp256k1::PublicKey::from_secret_key(secp, &sk.private_key),
             chain_code: sk.chain_code
         }
+    }
+
+    /// Constructs ECDSA compressed public key matching internal public key representation.
+    pub fn to_ecdsa(&self) -> ecdsa::PublicKey {
+        ecdsa::PublicKey {
+            compressed: true,
+            key: self.public_key
+        }
+    }
+
+    /// Constructs BIP340 xcoord-only public key for Schnorr signatures and Taproot use matching
+    /// the internal public key representation.
+    pub fn to_schnorr(&self) -> schnorr::PublicKey {
+        schnorr::PublicKey::from(self.public_key)
     }
 
     /// Attempts to derive an extended public key from a path.
