@@ -224,7 +224,6 @@ mod tests {
     use network::constants::Network::Bitcoin;
     use consensus::encode::{deserialize, serialize, serialize_hex};
     use util::bip32::{ChildNumber, ExtendedPrivKey, ExtendedPubKey, Fingerprint, KeySource};
-    use util::ecdsa;
     use util::psbt::map::{Global, Output, Input};
     use util::psbt::raw::{self, ProprietaryKey};
     use util::psbt::PartiallySignedTransaction;
@@ -288,10 +287,7 @@ mod tests {
             witness_script: Some(hex_script!(
                 "a9143545e6e33b832c47050f24d3eeb93c9c03948bc787"
             )),
-            bip32_derivation: hd_keypaths.into_iter().map(|(key, src)| (ecdsa::PublicKey {
-                compressed: true,
-                key,
-            }, src)).collect(),
+            bip32_derivation: hd_keypaths,
             ..Default::default()
         };
 
@@ -442,10 +438,7 @@ mod tests {
                     "0339880dc92394b7355e3d0439fa283c31de7590812ea011c4245c0674a685e883".parse().unwrap(),
                     vec![8, 5, 4],
                 )].into_iter().collect(),
-                bip32_derivation: keypaths.clone().into_iter().map(|(key, src)| (ecdsa::PublicKey {
-                    compressed: true,
-                    key,
-                }, src)).collect(),
+                bip32_derivation: keypaths.clone(),
                 final_script_witness: Some(vec![vec![1, 3], vec![5]]),
                 ripemd160_preimages: vec![(ripemd160::Hash::hash(&[]), vec![1, 2])].into_iter().collect(),
                 sha256_preimages: vec![(sha256::Hash::hash(&[]), vec![1, 2])].into_iter().collect(),
@@ -456,10 +449,7 @@ mod tests {
                 ..Default::default()
             }],
             outputs: vec![Output {
-                bip32_derivation: keypaths.into_iter().map(|(key, src)| (ecdsa::PublicKey {
-                    compressed: true,
-                    key,
-                }, src)).collect(),
+                bip32_derivation: keypaths,
                 proprietary: proprietary.clone(),
                 unknown: unknown.clone(),
                 ..Default::default()
