@@ -22,6 +22,7 @@ changes to this document in a pull request.
   * [Derivation](#derivation)
   * [MSRV](#msrv)
   * [Naming conventions](#naming-conventions)
+  * [Unsafe code](#unsafe-code)
 - [Security](#security)
 - [Testing](#testing)
 - [Going further](#going-further)
@@ -152,6 +153,11 @@ achievable).
 
 ## Coding conventions
 
+Overall, this library must reflect Bitcoin Core approach whenever possible.
+However, since many of the things in Bitcoin Core are maintained due to 
+historical reasons and may represent poor design, Rust-idiomatic style is 
+preferred to "how it looks in Core" if everyone agrees.
+
 ### Formatting
 
 We plan to utilize `rustfmt` for keeping the code formatting consistent. 
@@ -197,17 +203,28 @@ Derivations applied to a data structures should be standardized:
    must be placed before each struct, and then those of these traits, which can't
    be auto-derived because of the member field restrictions should be removed.
 
-2. `Default` derivation should be performed whenever there is a rationale to 
+2. `Eq`, `PartialEq`, `Ord`, `PartialOrd` derivation must be skipped/removed
+   from pt. 1 in the following situations:
+   - for types that don't have reflexive equality/ordering
+   - types which has lexicographic ordering defined as a part of a standard must
+     provide manual derivation
+   - types which may be more efficiently compared with bitcoin-specific rules
+     should provide manual derivation
+
+3. `Debug` must not be derived on structs and enums which may contain secret
+   data, and a manual `Debug` implementation should be provided instead.
+
+4. `Default` derivation should be performed whenever there is a rationale to 
    have default constructor initializing "empty" data structure, i.e. this 
    empty structure has a real use in the business logic *outside of the scope
    of testing or creating dumb data*. For instance, if the structure consists
    only of collection types which may be empty it should derive `Default` trait.
 
-3. **Error types** (both structs and enums) must implement `Display` and `Error`
+5. **Error types** (both structs and enums) must implement `Display` and `Error`
    traits manually, and should provide `Error::source` function if some of the
    error cases contain other error type.
 
-4. `Display` should be implemented for all data types which may be presented to
+6. `Display` should be implemented for all data types which may be presented to
    the end user (not developers!), for instance in command line or as a part of
    GUI. Here are some guidelines: 
    - Normally, `Display` implementation should not just repeat `Debug` and
@@ -221,7 +238,7 @@ Derivations applied to a data structures should be standardized:
      `Display::fmt(&self.field, f)?;` is preferable over 
      `write!(f, "{}", self.field)?;`
 
-5. Serde serializers should be implemented for all data types which may persist
+7. Serde serializers should be implemented for all data types which may persist
    or may be presented in the UI or API as JSON/YAML and other kinds of data 
    representations (in fact, these are all data types).
 
@@ -230,7 +247,7 @@ The discussion about trait derivation can be read at
 
 ### MSRV
 
-The Minimal Supported Rust Version (MSRV) is 0.29; it is enforced by our CI. 
+The Minimal Supported Rust Version (MSRV) is 1.29; it is enforced by our CI. 
 Later we plan to increase MSRV to support Rust 2018 and you are welcome to check
 the [tracking issue](https://github.com/rust-bitcoin/rust-bitcoin/issues/510).
 
@@ -242,16 +259,18 @@ in Bitcoin Core, with except to:
   snake_case for fields and variants)
 - `C`-prefix, which should be omitted
 
+### Unsafe code
+
+Use of `unsafe` code is prohibited unless there is a unanonymous decision among
+library maintainers on the exclusion from this rule. In such cases there is a 
+requirement to test unsafe code with sanitizers including Miri.
+
 
 ## Security
 
-Security is the primary focus of Rust-LNPBP; disclosure of security
+Security is the primary focus for this library; disclosure of security
 vulnerabilities helps prevent user loss of funds. If you believe a vulnerability
 may affect other  implementations, please inform them.
-
-Note that Rust-LNPBP is currently considered "pre-production" during this time,
-there is no special handling of security issues. Please simply open an issue on
-Github.
 
 
 ## Testing
