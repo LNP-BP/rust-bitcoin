@@ -207,9 +207,9 @@ Derivations applied to a data structures should be standardized:
    from pt. 1 in the following situations:
    - for types that don't have reflexive equality/ordering
    - types which has lexicographic ordering defined as a part of a standard must
-     provide manual derivation
+     provide manual implementation
    - types which may be more efficiently compared with bitcoin-specific rules
-     should provide manual derivation
+     should provide manual implementation
 
 3. `Debug` must not be derived on structs and enums which may contain secret
    data, and a manual `Debug` implementation should be provided instead.
@@ -270,7 +270,11 @@ requirement to test unsafe code with sanitizers including Miri.
 
 Security is the primary focus for this library; disclosure of security
 vulnerabilities helps prevent user loss of funds. If you believe a vulnerability
-may affect other  implementations, please inform them.
+may affect other implementations, please disclose this information according to
+the [security guidelines](./SECURITY.md), work on which is currently in progress.
+Before it is completed, feel free to send disclosure to Andrew Poelstra,
+apoelstra@wpsoftware.net, and encrypted with his public key, which may be found
+at <https://www.wpsoftware.net/andrew/andrew.gpg>.
 
 
 ## Testing
