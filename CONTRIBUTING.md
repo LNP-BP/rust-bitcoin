@@ -14,8 +14,8 @@ changes to this document in a pull request.
 - [Communication channels](#communication-channels)
 - [Asking questions](#asking-questions)
 - [Contribution workflow](#contribution-workflow)
-- [Branches information](#branches-information)
-- [Peer review](#peer-review)
+  * [Preparing PRs](#preparing-prs)
+  * [Peer review](#peer-review)
   * [Repository maintainers](#repository-maintainers)
 - [Coding conventions](#coding-conventions)
   * [Formatting](#formatting)
@@ -97,20 +97,44 @@ comment suggesting that you're working on it. If someone is already assigned,
 don't hesitate to ask if the assigned party or previous commenters are still
 working on it if it has been awhile.
 
-
-## Branches information
+## Preparing PRs
 
 The main library development happens in the `master` branch. This branch must
 always compile without errors (using GitHub CI). All external contributions are
 made within PRs into this branch.
 
-Each commitment within a PR to the `master` must
-* compile without errors;
-* contain all necessary tests for the introduced functional;
-* contain all docs.
+Prerequisites that a PR must satisfy in order to be considered for merging into 
+the `master` branch:
+* each commit within a PR must compile and pass unit tests with no errors, with 
+  every feature combination (excepting fuzztarget, but including compiling the 
+  fuzztests) on some reasonably recent compiler (this is partially automated 
+  with CI, so the rule is that if GitHub CI is not passing, the commitment can't
+  be accepted);
+* the tip of any PR branch must also compile and pass tests with no errors on 
+  MSRV (check [README.md] on current MSRV requirements) and pass fuzz tests on
+  nightly rust;
+* contain all necessary tests for the introduced functional (either as a part of
+  commits, or, more preferably, as a separate commits, so that it's easy to 
+  reorder them during review and check that the new tests fail without the new 
+  code);
+* contain all inline docs for newly introduced API and pass doc tests;
+* be based on the resent `master` tip from the original repository at
+  <https://github.com/rust-bitcoin/rust-bitcoin>.
 
+NB: reviewers may run more complex test/CI scripts, thus, satisfying all the
+requirements above is just a preliminary, but not necessary sufficient step for 
+getting the PR accepted as a valid candidate PR for the `master` branch.
 
-## Peer review
+PR authors may also find useful to run the following script locally in order to
+check that each of the commitments within the PR satisfy the requirements above,
+before submitting the PR to review:
+```shell script
+BITCOIN_MSRV=1.29.0 ./contrib/ci.sh
+```
+Where value in `BITCOIN_MSRV=1.29.0` should be replaced with the current MSRV 
+from [README.md].
+
+### Peer review
 
 Anyone may participate in peer review which is expressed by comments in the pull
 request. Typically reviewers will review the code for obvious errors, as well as
@@ -133,22 +157,6 @@ Current list of the project maintainers:
 - [Elichai Turkel](https://github.com/elichai)
 - [Sebastian Geisler](https://github.com/sgeisler)
 - [Sanket Kanjalkar](https://github.com/sanket1729)
-
-Anyone may become a prepository maintaner by:
-- Demonstrating long-term commitment to the project development (multiple 
-  accepted PRs and code review of other's PRs over prolonged period of time, 
-  proven by the rank in 
-  [GitHub project contributors list](https://github.com/rust-bitcoin/rust-bitcoin/graphs/contributors))
-- Contributing code and reviews at high quality, passing peer-review of the
-  existing maintainers and other participants.
-- Willing to perform peer review and participate in closing issues on the 
-  regular basis in the future.
-
-On the other hand, those, who had stopped participating in the project 
-development on the ongoing basis may be, after some "grace period", be removed
-from the project maintainers, if there are other candidates who can replace them
-(such that "2 positive reviews from maintainers" requirement will remain 
-achievable).
 
 
 ## Coding conventions
