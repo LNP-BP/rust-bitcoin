@@ -108,17 +108,17 @@ the `master` branch:
 * each commit within a PR must compile and pass unit tests with no errors, with 
   every feature combination (excepting fuzztarget, but including compiling the 
   fuzztests) on some reasonably recent compiler (this is partially automated 
-  with CI, so the rule is that if GitHub CI is not passing, the commitment can't
+  with CI, so the rule is that if GitHub CI is not passing, the commit can't
   be accepted);
 * the tip of any PR branch must also compile and pass tests with no errors on 
   MSRV (check [README.md] on current MSRV requirements) and pass fuzz tests on
   nightly rust;
 * contain all necessary tests for the introduced functional (either as a part of
-  commits, or, more preferably, as a separate commits, so that it's easy to 
+  commits, or, more preferably, as separate commits, so that it's easy to 
   reorder them during review and check that the new tests fail without the new 
   code);
 * contain all inline docs for newly introduced API and pass doc tests;
-* be based on the resent `master` tip from the original repository at
+* be based on the recent `master` tip from the original repository at
   <https://github.com/rust-bitcoin/rust-bitcoin>.
 
 NB: reviewers may run more complex test/CI scripts, thus, satisfying all the
@@ -126,13 +126,17 @@ requirements above is just a preliminary, but not necessary sufficient step for
 getting the PR accepted as a valid candidate PR for the `master` branch.
 
 PR authors may also find useful to run the following script locally in order to
-check that each of the commitments within the PR satisfy the requirements above,
+check that each of the commits within the PR satisfy the requirements above,
 before submitting the PR to review:
 ```shell script
 BITCOIN_MSRV=1.29.0 ./contrib/ci.sh
 ```
 Where value in `BITCOIN_MSRV=1.29.0` should be replaced with the current MSRV 
 from [README.md].
+
+NB: Please keep in mind that the script above replaces `Cargo.lock` file, which
+is necessary to support current MSRV, incompatible with `stable` and newer cargo
+versions.
 
 ### Peer review
 
@@ -288,10 +292,9 @@ at <https://www.wpsoftware.net/andrew/andrew.gpg>.
 ## Testing
 
 Related to the security aspect, rust bitcoin developers must be taking testing
-very seriously. Due to the modular nature of the project, writing new functional
-tests is easy and good test coverage of the codebase is an important goal.
-Refactoring the project to enable fine-grained unit testing is also an ongoing
-effort.
+very seriously. Due to the modular nature of the project, writing new test cases 
+is easy and good test coverage of the codebase is an important goal. Refactoring 
+the project to enable fine-grained unit testing is also an ongoing effort.
 
 Fuzzing is heavily encouraged: feel free to add related material under `fuzz/`
 
