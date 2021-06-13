@@ -212,7 +212,7 @@ impl FromStr for WitnessVersion {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let version = u8::from_str(s).map_err(|err| Error::UnparsableWitnessVersion(err))?;
-        WitnessVersion::from_no(version)
+        WitnessVersion::from_num(version)
     }
 }
 
@@ -227,7 +227,7 @@ impl WitnessVersion {
     /// If the integer does not corresponds to any witness version, errors with
     /// [`Error::InvalidWitnessVersion`]
     pub fn from_u5(value: ::bech32::u5) -> Result<Self, Error> {
-        WitnessVersion::from_no(value.to_u8())
+        WitnessVersion::from_num(value.to_u8())
     }
 
     /// Converts 8-bit unsigned integer value into [`WitnessVersion`] variant.
@@ -238,7 +238,7 @@ impl WitnessVersion {
     /// # Errors
     /// If the integer does not corresponds to any witness version, errors with
     /// [`Error::InvalidWitnessVersion`]
-    pub fn from_no(no: u8) -> Result<Self, Error> {
+    pub fn from_num(no: u8) -> Result<Self, Error> {
         Ok(match no {
             0 => WitnessVersion::V0,
             1 => WitnessVersion::V1,
@@ -273,7 +273,7 @@ impl WitnessVersion {
         match opcode.into_u8() {
             0 => Ok(WitnessVersion::V0),
             version if version >= opcodes::all::OP_PUSHNUM_1.into_u8() && version <= opcodes::all::OP_PUSHNUM_16.into_u8() =>
-                WitnessVersion::from_no(version - opcodes::all::OP_PUSHNUM_1.into_u8() + 1),
+                WitnessVersion::from_num(version - opcodes::all::OP_PUSHNUM_1.into_u8() + 1),
             _ => Err(Error::MalformedWitnessVersion)
         }
     }
@@ -299,7 +299,7 @@ impl WitnessVersion {
     /// NB: this is not the same as an integer representation of the opcode signifying witness
     /// version in bitcoin script. Thus, there is no function to directly convert witness version
     /// into a byte since the conversion requires context (bitcoin script or just a version number)
-    pub fn into_no(self) -> u8 {
+    pub fn into_num(self) -> u8 {
         self as u8
     }
 }
@@ -307,7 +307,7 @@ impl WitnessVersion {
 impl From<WitnessVersion> for ::bech32::u5 {
     /// Converts [`WitnessVersion`] instance into corresponding Bech32(m) u5-value ([`bech32::u5`])
     fn from(version: WitnessVersion) -> Self {
-        ::bech32::u5::try_from_u8(version.into_no()).expect("WitnessVersion must be 0..=16")
+        ::bech32::u5::try_from_u8(version.into_num()).expect("WitnessVersion must be 0..=16")
     }
 }
 
@@ -316,7 +316,7 @@ impl From<WitnessVersion> for opcodes::All {
     fn from(version: WitnessVersion) -> opcodes::All {
         match version {
             WitnessVersion::V0 => opcodes::all::OP_PUSHBYTES_0,
-            no => opcodes::All::from(opcodes::all::OP_PUSHNUM_1.into_u8() + no.into_no() - 1)
+            no => opcodes::All::from(opcodes::all::OP_PUSHNUM_1.into_u8() + no.into_num() - 1)
         }
     }
 }
