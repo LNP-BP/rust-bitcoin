@@ -60,7 +60,7 @@ pub enum Error {
     InvalidWitnessVersion(u8),
     /// Unable to parse witness version from string or opcode value
     UnparsableWitnessVersion(ParseIntError),
-    /// Bitcoin script opcode does not match any known witness version, the script if malformed
+    /// Bitcoin script opcode does not match any known witness version, the script is malformed
     MalformedWitnessVersion,
     /// The witness program must be between 2 and 40 bytes in length.
     InvalidWitnessProgramLength(usize),
@@ -78,7 +78,7 @@ impl fmt::Display for Error {
             Error::EmptyBech32Payload => write!(f, "the bech32 payload was empty"),
             Error::InvalidWitnessVersion(v) => write!(f, "invalid witness script version: {}", v),
             Error::UnparsableWitnessVersion(ref e) => write!(f, "Incorrect format of a witness version byte: {}", e),
-            Error::MalformedWitnessVersion => f.write_str("bitcoin script opcode does not match any known witness version, the script if malformed"),
+            Error::MalformedWitnessVersion => f.write_str("bitcoin script opcode does not match any known witness version, the script is malformed"),
             Error::InvalidWitnessProgramLength(l) => write!(f,
                 "the witness program must be between 2 and 40 bytes in length: length={}", l,
             ),
@@ -267,8 +267,8 @@ impl WitnessVersion {
     /// Version of the Witness program (for opcodes in range of `OP_0`..`OP_16`)
     ///
     /// # Errors
-    /// If the opcode does not corresponds to any witness version, errors with
-    /// [`Error::UnparsableWitnessVersion`] for the rest of opcodes
+    /// If the opcode does not correspond to any witness version, errors with
+    /// [`Error::UnparsableWitnessVersion`]
     pub fn from_opcode(opcode: opcodes::All) -> Result<Self, Error> {
         match opcode.into_u8() {
             0 => Ok(WitnessVersion::V0),
@@ -285,7 +285,7 @@ impl WitnessVersion {
     /// byte value within `1..=16` range.
     ///
     /// # Errors
-    /// If the opcode does not corresponds to any witness version, errors with
+    /// If the opcode does not correspond to any witness version, errors with
     /// [`Error::UnparsableWitnessVersion`] for the rest of opcodes
     pub fn from_instruction(instruction: Instruction) -> Result<Self, Error> {
         match instruction {
