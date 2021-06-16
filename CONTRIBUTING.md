@@ -45,8 +45,10 @@ you'll learn.
 
 ## Communication channels
 
-Communication about Rust Bitcoin happens primarily in #rust-bitcoin IRC chat on 
-Freenode with the logs available at <http://gnusha.org/rust-bitcoin/>
+Communication about Rust Bitcoin happens primarily in 
+[#bitcoin-rust](https://web.libera.chat/?channel=#bitcoin-rust) IRC chat on 
+[Libera](https://libera.chat/) with the logs available at 
+<http://gnusha.org/rust-bitcoin/>.
 
 Discussion about code base improvements happens in GitHub issues and on pull
 requests.
