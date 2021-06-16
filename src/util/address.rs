@@ -159,8 +159,8 @@ impl FromStr for AddressType {
 /// to 16 (inclusive).
 ///
 /// Structure helps to limit possible version of the witness according to the
-/// specification; if a plain `u8` type will be used instead it will mean that
-/// version > 16, which is incorrect.
+/// specification; if a plain `u8` type was be used instead it would mean that
+/// version may be > 16, which is incorrect.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(u8)]
 pub enum WitnessVersion {
@@ -200,6 +200,8 @@ pub enum WitnessVersion {
     V16 = 16,
 }
 
+/// Prints [`WitnessVersion`] number (from 0 to 16) as integer, without
+/// any prefix or suffix.
 impl fmt::Display for WitnessVersion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", *self as u8)
@@ -211,7 +213,7 @@ impl FromStr for WitnessVersion {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let version = u8::from_str(s).map_err(|err| Error::UnparsableWitnessVersion(err))?;
+        let version = s.parse().map_err(|err| Error::UnparsableWitnessVersion(err))?;
         WitnessVersion::from_num(version)
     }
 }
@@ -296,6 +298,7 @@ impl WitnessVersion {
     }
 
     /// Returns integer version number representation for a given [`WitnessVersion`] value.
+    ///
     /// NB: this is not the same as an integer representation of the opcode signifying witness
     /// version in bitcoin script. Thus, there is no function to directly convert witness version
     /// into a byte since the conversion requires context (bitcoin script or just a version number)
@@ -499,9 +502,9 @@ impl Address {
     }
 
     /// Check whether or not the address is following Bitcoin
-    /// standard rules.
+    /// standardness rules.
     ///
-    /// Segwit addresses with unassigned witness versions or non-standard
+    /// SegWit addresses with unassigned witness versions or non-standard
     /// program sizes are considered non-standard.
     pub fn is_standard(&self) -> bool {
         self.address_type().is_some()
