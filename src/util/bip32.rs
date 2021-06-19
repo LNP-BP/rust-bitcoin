@@ -16,9 +16,8 @@
 //! Implementation of BIP32 hierarchical deterministic wallets, as defined
 //! at <https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki>
 
-use std::default::Default;
-use std::{error, fmt};
-use std::str::FromStr;
+use core::{fmt, str::FromStr, default::Default};
+use std::error;
 #[cfg(feature = "serde")] use serde;
 
 use hash_types::XpubIdentifier;
@@ -267,13 +266,13 @@ impl<'a> From<&'a [ChildNumber]> for DerivationPath {
     }
 }
 
-impl ::std::iter::FromIterator<ChildNumber> for DerivationPath {
+impl ::core::iter::FromIterator<ChildNumber> for DerivationPath {
     fn from_iter<T>(iter: T) -> Self where T: IntoIterator<Item = ChildNumber> {
         DerivationPath(Vec::from_iter(iter))
     }
 }
 
-impl<'a> ::std::iter::IntoIterator for &'a DerivationPath {
+impl<'a> ::core::iter::IntoIterator for &'a DerivationPath {
     type Item = &'a ChildNumber;
     type IntoIter = ::std::slice::Iter<'a, ChildNumber>;
     fn into_iter(self) -> Self::IntoIter {
@@ -431,8 +430,6 @@ pub enum Error {
     Ecdsa(secp256k1::Error), // TODO: This is not necessary ECDSA error and should be renamed
     /// A child number was provided that was out of range
     InvalidChildNumber(u32),
-    /// Error creating a master seed --- for application use
-    RngError(String), // TODO: This option seems unused and should be removed, opening a way to make this type copiable
     /// Invalid childnumber format.
     InvalidChildNumberFormat,
     /// Invalid derivation path format.
@@ -451,7 +448,6 @@ impl fmt::Display for Error {
             Error::CannotDeriveFromHardenedKey => f.write_str("cannot derive hardened key from public key"),
             Error::Ecdsa(ref e) => fmt::Display::fmt(e, f),
             Error::InvalidChildNumber(ref n) => write!(f, "child number {} is invalid (not within [0, 2^31 - 1])", n),
-            Error::RngError(ref s) => write!(f, "rng error {}", s),
             Error::InvalidChildNumberFormat => f.write_str("invalid child number format"),
             Error::InvalidDerivationPathFormat => f.write_str("invalid derivation path format"),
             Error::UnknownVersion(ref bytes) => write!(f, "unknown version magic bytes: {:?}", bytes),
@@ -770,8 +766,7 @@ mod tests {
     use super::*;
     use super::ChildNumber::{Hardened, Normal};
 
-    use std::str::FromStr;
-    use std::string::ToString;
+    use core::str::FromStr;
 
     use secp256k1::{self, Secp256k1};
     use hashes::hex::FromHex;

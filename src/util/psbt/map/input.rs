@@ -12,7 +12,7 @@
 // If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
 //
 
-use std::io;
+use io;
 use std::collections::btree_map::{BTreeMap, Entry};
 
 use blockdata::script::Script;
@@ -311,8 +311,8 @@ where
             let val: Vec<u8> = Deserialize::deserialize(&raw_value)?;
             if <H as hashes::Hash>::hash(&val) != key_val {
                 return Err(psbt::Error::InvalidPreimageHashPair {
-                    preimage: val,
-                    hash: Vec::from(key_val.borrow()),
+                    preimage: val.into_boxed_slice(),
+                    hash: Box::from(key_val.borrow()),
                     hash_type: hash_type,
                 }
                 .into());

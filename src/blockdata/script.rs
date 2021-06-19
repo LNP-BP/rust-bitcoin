@@ -24,8 +24,9 @@
 //! This module provides the structures and functions needed to support scripts.
 //!
 
-use std::default::Default;
-use std::{error, fmt, io, str};
+use io;
+
+use core::{fmt, default::Default};
 
 #[cfg(feature = "serde")] use serde;
 
@@ -92,7 +93,8 @@ impl hex::FromHex for Script {
         Vec::from_byte_iter(iter).map(|v| Script(Box::<[u8]>::from(v)))
     }
 }
-impl str::FromStr for Script {
+
+impl ::core::str::FromStr for Script {
     type Err = hex::Error;
     fn from_str(s: &str) -> Result<Self, hex::Error> {
         hex::FromHex::from_hex(s)
@@ -144,7 +146,7 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {}
+impl ::std::error::Error for Error {}
 
 #[cfg(feature="bitcoinconsensus")]
 #[doc(hidden)]
@@ -405,11 +407,11 @@ impl Script {
 
     /// Gets the minimum value an output with this script should have in order to be
     /// broadcastable on today's bitcoin network.
-    pub fn dust_value(&self) -> u64 {
+    pub fn dust_value(&self) -> ::Amount {
         // This must never be lower than Bitcoin Core's GetDustThreshold() (as of v0.21) as it may
         // otherwise allow users to create transactions which likely can never be
         // broadcasted/confirmed.
-        DUST_RELAY_TX_FEE as u64 / 1000 * // The default dust relay fee is 3000 satoshi/kB (ie 3 sat/vByte)
+        let sats = DUST_RELAY_TX_FEE as u64 / 1000 * // The default dust relay fee is 3000 satoshi/kB (ie 3 sat/vByte)
         if self.is_op_return() {
             0
         } else if self.is_witness_program() {
@@ -420,7 +422,9 @@ impl Script {
             32 + 4 + 1 + 107 + 4 + // The spend cost copied from Core
             8 + // The serialized size of the TxOut's amount field
             self.consensus_encode(&mut ::std::io::sink()).unwrap() as u64 // The serialized size of this script_pubkey
-        }
+        };
+
+        ::Amount::from_sat(sats)
     }
 
     /// Iterate over the script in the form of `Instruction`s, which are an enum covering
@@ -816,7 +820,7 @@ impl<'de> serde::Deserialize<'de> for Script {
     where
         D: serde::Deserializer<'de>,
     {
-        use std::fmt::Formatter;
+        use core::fmt::Formatter;
         use hashes::hex::FromHex;
 
         struct Visitor;
@@ -885,7 +889,7 @@ impl Decodable for Script {
 
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
+    use core::str::FromStr;
 
     use super::*;
     use super::build_scriptint;
@@ -1256,7 +1260,7 @@ mod test {
         // well-known scriptPubKey types.
         let script_p2wpkh = Builder::new().push_int(0).push_slice(&[42; 20]).into_script();
         assert!(script_p2wpkh.is_v0_p2wpkh());
-        assert_eq!(script_p2wpkh.dust_value(), 294);
+        assert_eq!(script_p2wpkh.dust_value(), ::Amount::from_sat(294));
 
         let script_p2pkh = Builder::new()
             .push_opcode(opcodes::all::OP_DUP)
@@ -1266,7 +1270,7 @@ mod test {
             .push_opcode(opcodes::all::OP_CHECKSIG)
             .into_script();
         assert!(script_p2pkh.is_p2pkh());
-        assert_eq!(script_p2pkh.dust_value(), 546);
+        assert_eq!(script_p2pkh.dust_value(), ::Amount::from_sat(546));
     }
 }
 
