@@ -58,7 +58,7 @@ pub enum Error {
     EmptyBech32Payload,
     /// Script version must be 0 to 16 inclusive
     InvalidWitnessVersion(u8),
-    /// Unable to parse witness version from string or opcode value
+    /// Unable to parse witness version from string
     UnparsableWitnessVersion(ParseIntError),
     /// Bitcoin script opcode does not match any known witness version, the script is malformed
     MalformedWitnessVersion,
