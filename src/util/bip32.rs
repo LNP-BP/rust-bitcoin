@@ -505,7 +505,7 @@ impl ExtendedPrivKey {
     }
 
     /// Constructs ECDSA compressed private key matching internal secret key representation.
-    pub fn to_ecdsa(&self) -> ecdsa::PrivateKey {
+    pub fn to_ecdsa_priv(&self) -> ecdsa::PrivateKey {
         ecdsa::PrivateKey {
             compressed: true,
             network: self.network,
@@ -515,7 +515,7 @@ impl ExtendedPrivKey {
 
     /// Constructs BIP340 keypair for Schnorr signatures and Taproot use matching the internal
     /// secret key representation.
-    pub fn to_schnorr<C: secp256k1::Signing>(&self, secp: &Secp256k1<C>) -> schnorr::KeyPair {
+    pub fn to_schnorr_keypair<C: secp256k1::Signing>(&self, secp: &Secp256k1<C>) -> schnorr::KeyPair {
         schnorr::KeyPair::from_seckey_slice(secp, &self.private_key[..]).expect("BIP32 internal private key representation is broken")
     }
 
@@ -608,7 +608,7 @@ impl ExtendedPrivKey {
 
     /// Returns the HASH160 of the public key belonging to the xpriv
     pub fn identifier<C: secp256k1::Signing>(&self, secp: &Secp256k1<C>) -> XpubIdentifier {
-        ExtendedPubKey::from_private(secp, self).identifier()
+        ExtendedPubKey::from_priv(secp, self).identifier()
     }
 
     /// Returns the first four bytes of the identifier
@@ -619,7 +619,7 @@ impl ExtendedPrivKey {
 
 impl ExtendedPubKey {
     /// Derives a public key from a private key
-    pub fn from_private<C: secp256k1::Signing>(secp: &Secp256k1<C>, sk: &ExtendedPrivKey) -> ExtendedPubKey {
+    pub fn from_priv<C: secp256k1::Signing>(secp: &Secp256k1<C>, sk: &ExtendedPrivKey) -> ExtendedPubKey {
         ExtendedPubKey {
             network: sk.network,
             depth: sk.depth,
@@ -631,16 +631,16 @@ impl ExtendedPubKey {
     }
 
     /// Constructs ECDSA compressed public key matching internal public key representation.
-    pub fn to_ecdsa(&self) -> ecdsa::PublicKey {
+    pub fn to_ecdsa_pub(&self) -> ecdsa::PublicKey {
         ecdsa::PublicKey {
             compressed: true,
             key: self.public_key
         }
     }
 
-    /// Constructs BIP340 xcoord-only public key for Schnorr signatures and Taproot use matching
+    /// Constructs BIP340 x-only public key for BIP-340 signatures and Taproot use matching
     /// the internal public key representation.
-    pub fn to_schnorr(&self) -> schnorr::PublicKey {
+    pub fn to_schnorr_pub(&self) -> schnorr::PublicKey {
         schnorr::PublicKey::from(self.public_key)
     }
 
@@ -875,7 +875,7 @@ mod tests {
                  expected_pk: &str) {
 
         let mut sk = ExtendedPrivKey::new_master(network, seed).unwrap();
-        let mut pk = ExtendedPubKey::from_private(secp, &sk);
+        let mut pk = ExtendedPubKey::from_priv(secp, &sk);
 
         // Check derivation convenience method for ExtendedPrivKey
         assert_eq!(
@@ -903,7 +903,7 @@ mod tests {
             match num {
                 Normal {..} => {
                     let pk2 = pk.ckd_pub(secp, num).unwrap();
-                    pk = ExtendedPubKey::from_private(secp, &sk);
+                    pk = ExtendedPubKey::from_priv(secp, &sk);
                     assert_eq!(pk, pk2);
                 }
                 Hardened {..} => {
@@ -911,7 +911,7 @@ mod tests {
                         pk.ckd_pub(secp, num),
                         Err(Error::CannotDeriveFromHardenedKey)
                     );
-                    pk = ExtendedPubKey::from_private(secp, &sk);
+                    pk = ExtendedPubKey::from_priv(secp, &sk);
                 }
             }
         }
